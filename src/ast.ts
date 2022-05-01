@@ -1,10 +1,6 @@
-import { NameGenerator, UniqASTGenerator, MinMaxVarName, RangeResult } from './util'
+import { NameGenerator, UniqASTGenerator, MinMaxVarName } from './util'
 import { Expander } from "./expander"
 
-export type RangeFunction = (xmin: number, xmax: number, ymin: number, ymax: number) => RangeResult
-export type RangeFunction3D = (xmin: number, xmax: number, ymin: number, ymax: number, zmin: number, zmax: number) => RangeResult
-export type ValueFunction = (x: number, y: number) => number
-export type ValueFunction3D = (x: number, y: number, z: number) => number
 export type ASTOpNode = { op: string; args: ASTNode[] }
 export type ASTNode = string | number | ASTOpNode
 export type UniqASTOpNode = { op: string; args: UniqASTNode[]; uniqId: number, uniqKey: string }

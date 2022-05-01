@@ -1,9 +1,6 @@
 export type MinMaxVarName = [min: string, max: string]
-export type RangeResult = -3 | -2 | -1 | 0 | 1 | 2 | 3
-export type RangeFunction2D = (xmin: number, xmax: number, ymin: number, ymax: number) => RangeResult
-export type RangeFunction3D = (xmin: number, xmax: number, ymin: number, ymax: number, zmin: number, zmax: number) => RangeResult
-export type ValueFunction2D = (x: number, y: number) => number
-export type ValueFunction3D = (x: number, y: number, z: number) => number
+export type RangeResultType = (typeof RangeResults)[keyof typeof RangeResults]
+export const RangeResults = { HASGAP: -3, HASNAN: -2, BOTH: -1, EQZERO: 0, NEGATIVE: 1, POSITIVE: 2, EQNAN: 3 } as const
 export type ASTOpNode = { op: string; args: ASTNode[] }
 export type ASTNode = string | number | ASTOpNode
 export type UniqASTOpNode = { op: string; args: UniqASTNode[]; uniqId: number, uniqKey: string }

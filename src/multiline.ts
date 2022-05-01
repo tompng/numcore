@@ -1,7 +1,7 @@
 import { parse, predefinedFunctionNames } from './parser'
 import { ASTNode, UniqASTNode, UniqASTOpNode, extractVariables, extractFunctions, astToCode, astToRangeVarNameCode, preEvaluateAST } from './ast'
-import { expanders, Results, GAPMARK, NANMARK } from "./expander"
-import { createNameGenerator, MinMaxVarName, CompareMode, UniqASTGenerator } from './util'
+import { expanders, GAPMARK, NANMARK } from "./expander"
+import { createNameGenerator, MinMaxVarName, CompareMode, UniqASTGenerator, RangeResults } from './util'
 
 type PresetFunc = [args: string[], body: string]
 export type Presets = Record<string, string | number | PresetFunc>
@@ -9,7 +9,7 @@ type VarDef = { type: 'var'; name: string; deps: string[]; ast: UniqASTNode | nu
 type FuncDef = { type: 'func'; name: string; deps: string[]; args: string[]; ast: UniqASTNode | null; error?: string }
 type Equation = { type: 'eq'; mode: CompareMode; deps: string[]; ast: UniqASTNode | null; error?: string }
 type Definition = VarDef | FuncDef
-type Formula = Definition | Equation
+export type Formula = Definition | Equation
 
 export function parseMultiple(formulaTexts: string[], argNames: string[], presets?: Presets) {
   const uniq = new UniqASTGenerator()
@@ -271,8 +271,8 @@ function toProcedure(ast: UniqASTNode) {
   return [vars, replace(ast, true)] as const
 }
 
-export function astToValueFunctionCode(ast: UniqASTNode, args: string[]) {
-  const [vars, rast] = toProcedure(ast)
+export function astToValueFunctionCode(uniqAST: UniqASTNode, args: string[]) {
+  const [vars, rast] = toProcedure(uniqAST)
   const varNames = new Set([...args, ...vars.keys()])
   const codes = [...vars.entries()].map(([name, ast]) => `const ${name}=${astToCode(ast, varNames)}`)
   return `(${args.join(',')})=>{${codes.join('\n')}\nreturn ${astToCode(rast, varNames)}}`
@@ -303,7 +303,7 @@ export function astToRangeFunctionCode(uniqAST: UniqASTNode, args: string[], opt
   const argsPart = `(${args.map(a => `${a}min,${a}max`).join(',')})`
   const epsilon = 1e-15
   if (typeof result === 'number') {
-    const val = isNaN(result) ? Results.NAN : result < -epsilon ? Results.NEG : result > epsilon ? Results.POS : Results.ZERO
+    const val = isNaN(result) ? RangeResults.EQNAN : result < -epsilon ? RangeResults.NEGATIVE : result > epsilon ? RangeResults.POSITIVE : RangeResults.EQZERO
     return `${argsPart}=>${val}`
   }
   const fullCode = [...codes, rcode].join('\n')
@@ -315,17 +315,17 @@ export function astToRangeFunctionCode(uniqAST: UniqASTNode, args: string[], opt
   const preparePart = gapPrepare + nanPrepare
   const [minvar, maxvar] = result
   const markEmbeddedCode = fullCode.replaceAll(GAPMARK, '_gap=true;').replaceAll(NANMARK, '_nan=true;')
-  const gapRetPart = gapTest ? `_gap?${Results.HASGAP}:` : ''
-  const nanRetPart = nanTest ? `_nan?${Results.HASNAN}:` : ''
+  const gapRetPart = gapTest ? `_gap?${RangeResults.HASGAP}:` : ''
+  const nanRetPart = nanTest ? `_nan?${RangeResults.HASNAN}:` : ''
   let returnPart: string
   if (option.pos && option.neg) {
-    returnPart = `return ${nanRetPart}${minvar}>${epsilon}?${Results.POS}:${maxvar}<${-epsilon}?${Results.NEG}:${gapRetPart}${Results.BOTH}`
+    returnPart = `return ${nanRetPart}${minvar}>${epsilon}?${RangeResults.POSITIVE}:${maxvar}<${-epsilon}?${RangeResults.NEGATIVE}:${gapRetPart}${RangeResults.BOTH}`
   } else if (option.pos) {
-    returnPart = `return ${minvar}>${epsilon}?${nanRetPart}${Results.POS}:${maxvar}<${-epsilon}?${Results.NEG}:${gapRetPart}${Results.BOTH}`
+    returnPart = `return ${minvar}>${epsilon}?${nanRetPart}${RangeResults.POSITIVE}:${maxvar}<${-epsilon}?${RangeResults.NEGATIVE}:${gapRetPart}${RangeResults.BOTH}`
   } else if (option.neg) {
-    returnPart = `return ${minvar}>${epsilon}?${Results.POS}:${maxvar}<${-epsilon}?${nanRetPart}${Results.NEG}:${gapRetPart}${Results.BOTH}`
+    returnPart = `return ${minvar}>${epsilon}?${RangeResults.POSITIVE}:${maxvar}<${-epsilon}?${nanRetPart}${RangeResults.NEGATIVE}:${gapRetPart}${RangeResults.BOTH}`
   } else {
-    returnPart = `return ${minvar}>${epsilon}?${Results.POS}:${maxvar}<${-epsilon}?${Results.NEG}:${gapRetPart}${Results.BOTH}`
+    returnPart = `return ${minvar}>${epsilon}?${RangeResults.POSITIVE}:${maxvar}<${-epsilon}?${RangeResults.NEGATIVE}:${gapRetPart}${RangeResults.BOTH}`
   }
   return `${argsPart}=>{${preparePart}${markEmbeddedCode};${returnPart}}`
 }
