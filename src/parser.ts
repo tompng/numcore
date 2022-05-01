@@ -99,6 +99,16 @@ export function parse(s: string, extraVariables?: Set<string>, extraFunctions?: 
   return buildRootAST(tg, functions)
 }
 
+function flipComparator(cmp: CompareMode): CompareMode {
+  switch (cmp) {
+    case '>': return '<'
+    case '>=': return '<='
+    case '<': return '>'
+    case '<=': return '>='
+    default: return cmp
+  }
+}
+
 function buildRootAST(group: TokenParenGroup, functionNames: Set<string>): [ASTNode, CompareMode] {
   const idx = group.findIndex(item => typeof item === 'string' && comparers.has(item))
   if (idx === -1) {
@@ -106,13 +116,17 @@ function buildRootAST(group: TokenParenGroup, functionNames: Set<string>): [ASTN
     if (Array.isArray(ast)) throw 'Unexpected comma'
     return [ast, null]
   }
-  const cmp = group[idx] as string
+  const cmp = group[idx] as CompareMode
   const left = buildAST(group.slice(0, idx), functionNames)
   const right = buildAST(group.slice(idx + 1), functionNames)
   if (Array.isArray(left) || Array.isArray(right)) throw 'Unexpected comma'
-  const ast: ASTNode = cmp.includes('>') ? { op: '-', args: [left, right] } : { op: '-', args: [right, left] }
-  if (cmp === '=') return [ast, '=']
-  return [ast, cmp.includes('=') ? '>=' : '>']
+  if (left === 0) {
+    return [right, flipComparator(cmp)]
+  } else if (right === 0) {
+    return [left, cmp]
+  } else {
+    return [{ op: '-', args: [left, right] }, cmp]
+  }
 }
 type ArgGroup = ASTNode[]
 const oplist = [new Set(['+', '-']), new Set(['*', '/', ' '])]
