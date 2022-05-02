@@ -278,7 +278,7 @@ export function astToValueFunctionCode(uniqAST: UniqASTNode, args: string[]) {
   return `(${args.join(',')})=>{${codes.join('\n')}\nreturn ${astToCode(rast, varNames)}}`
 }
 
-export function astToRangeFunctionCode(uniqAST: UniqASTNode, args: string[], option: { pos?: boolean; neg?: boolean }) {
+export function astToRangeFunctionCode(uniqAST: UniqASTNode, args: string[], option: { pos?: boolean; neg?: boolean; zero?: boolean; eq?: boolean }) {
   const [tempVars, returnAST] = toProcedure(uniqAST)
   const namer = createNameGenerator()
   const vars: Record<string, MinMaxVarName> = {}
@@ -317,15 +317,18 @@ export function astToRangeFunctionCode(uniqAST: UniqASTNode, args: string[], opt
   const markEmbeddedCode = fullCode.replaceAll(GAPMARK, '_gap=true;').replaceAll(NANMARK, '_nan=true;')
   const gapRetPart = gapTest ? `_gap?${RangeResults.HASGAP}:` : ''
   const nanRetPart = nanTest ? `_nan?${RangeResults.HASNAN}:` : ''
+  const zeroRetPart = option.zero ? `${minvar}>-${epsilon}&&${maxvar}<${epsilon}?${RangeResults.EQZERO}:` : ''
+  const zeroRetPartWithNaN = option.zero ? `${minvar}>-${epsilon}&&${maxvar}<${epsilon}?${nanRetPart}${RangeResults.EQZERO}:` : ''
+  const cmpEpsilon = option.eq ? -epsilon : epsilon
   let returnPart: string
   if (option.pos && option.neg) {
-    returnPart = `return ${nanRetPart}${minvar}>${epsilon}?${RangeResults.POSITIVE}:${maxvar}<${-epsilon}?${RangeResults.NEGATIVE}:${gapRetPart}${RangeResults.BOTH}`
+    returnPart = `return ${nanRetPart}${minvar}>${epsilon}?${RangeResults.POSITIVE}:${maxvar}<${-epsilon}?${RangeResults.NEGATIVE}:${zeroRetPart}${gapRetPart}${RangeResults.BOTH}`
   } else if (option.pos) {
-    returnPart = `return ${minvar}>${epsilon}?${nanRetPart}${RangeResults.POSITIVE}:${maxvar}<${-epsilon}?${RangeResults.NEGATIVE}:${gapRetPart}${RangeResults.BOTH}`
+    returnPart = `return ${minvar}>${cmpEpsilon}?${nanRetPart}${RangeResults.POSITIVE}:${maxvar}<${-epsilon}?${RangeResults.NEGATIVE}:${gapRetPart}${RangeResults.BOTH}`
   } else if (option.neg) {
-    returnPart = `return ${minvar}>${epsilon}?${RangeResults.POSITIVE}:${maxvar}<${-epsilon}?${nanRetPart}${RangeResults.NEGATIVE}:${gapRetPart}${RangeResults.BOTH}`
+    returnPart = `return ${maxvar}<${-cmpEpsilon}?${nanRetPart}${RangeResults.NEGATIVE}:${minvar}>${epsilon}?${RangeResults.POSITIVE}:${gapRetPart}${RangeResults.BOTH}`
   } else {
-    returnPart = `return ${minvar}>${epsilon}?${RangeResults.POSITIVE}:${maxvar}<${-epsilon}?${RangeResults.NEGATIVE}:${gapRetPart}${RangeResults.BOTH}`
+    returnPart = `return ${minvar}>${epsilon}?${RangeResults.POSITIVE}:${maxvar}<${-epsilon}?${RangeResults.NEGATIVE}:${zeroRetPartWithNaN}${gapRetPart}${RangeResults.BOTH}`
   }
   return `${argsPart}=>{${preparePart}${markEmbeddedCode};${returnPart}}`
 }
