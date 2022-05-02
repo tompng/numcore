@@ -1,6 +1,6 @@
 export type MinMaxVarName = [min: string, max: string]
 export type RangeResultType = (typeof RangeResults)[keyof typeof RangeResults]
-export const RangeResults = { HASGAP: -3, HASNAN: -2, BOTH: -1, EQZERO: 0, NEGATIVE: 1, POSITIVE: 2, EQNAN: 3 } as const
+export const RangeResults = { HASGAP: -3, HASNAN: -2, BOTH: -1, EQZERO: 0, NEGATIVE: 1, POSITIVE: 2, EQNAN: 3, OTHER: 4 } as const
 export type ASTOpNode = { op: string; args: ASTNode[] }
 export type ASTNode = string | number | ASTOpNode
 export type UniqASTOpNode = { op: string; args: UniqASTNode[]; uniqId: number, uniqKey: string }

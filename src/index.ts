@@ -1,5 +1,6 @@
 import { parseMultiple, Formula, Presets } from "./multiline"
 export { ASTNode } from './ast'
+export { epsilon } from './multiline'
 import type { RangeResultType } from './util'
 export {
   RangeResults,

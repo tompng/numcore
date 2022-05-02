@@ -10,6 +10,7 @@ type FuncDef = { type: 'func'; name: string; deps: string[]; args: string[]; ast
 type Equation = { type: 'eq'; mode: CompareMode; deps: string[]; ast: UniqASTNode | null; error?: string }
 type Definition = VarDef | FuncDef
 export type Formula = Definition | Equation
+export const epsilon = 1e-15
 
 export function parseMultiple(formulaTexts: string[], argNames: string[], presets?: Presets) {
   const uniq = new UniqASTGenerator()
@@ -301,7 +302,6 @@ export function astToRangeFunctionCode(uniqAST: UniqASTNode, args: string[], opt
     namer
   )
   const argsPart = `(${args.map(a => `${a}min,${a}max`).join(',')})`
-  const epsilon = 1e-15
   if (typeof result === 'number') {
     const val = isNaN(result) ? RangeResults.EQNAN : result < -epsilon ? RangeResults.NEGATIVE : result > epsilon ? RangeResults.POSITIVE : RangeResults.EQZERO
     return `${argsPart}=>${val}`
@@ -324,11 +324,11 @@ export function astToRangeFunctionCode(uniqAST: UniqASTNode, args: string[], opt
   if (option.pos && option.neg) {
     returnPart = `return ${nanRetPart}${minvar}>${epsilon}?${RangeResults.POSITIVE}:${maxvar}<${-epsilon}?${RangeResults.NEGATIVE}:${zeroRetPart}${gapRetPart}${RangeResults.BOTH}`
   } else if (option.pos) {
-    returnPart = `return ${minvar}>${cmpEpsilon}?${nanRetPart}${RangeResults.POSITIVE}:${maxvar}<${-epsilon}?${RangeResults.NEGATIVE}:${gapRetPart}${RangeResults.BOTH}`
+    returnPart = `return ${minvar}>${cmpEpsilon}?${nanRetPart}${RangeResults.POSITIVE}:${maxvar}<${cmpEpsilon}?${RangeResults.OTHER}:${gapRetPart}${RangeResults.BOTH}`
   } else if (option.neg) {
-    returnPart = `return ${maxvar}<${-cmpEpsilon}?${nanRetPart}${RangeResults.NEGATIVE}:${minvar}>${epsilon}?${RangeResults.POSITIVE}:${gapRetPart}${RangeResults.BOTH}`
+    returnPart = `return ${maxvar}<${-cmpEpsilon}?${nanRetPart}${RangeResults.NEGATIVE}:${minvar}>${-cmpEpsilon}?${RangeResults.OTHER}:${gapRetPart}${RangeResults.BOTH}`
   } else {
-    returnPart = `return ${minvar}>${epsilon}?${RangeResults.POSITIVE}:${maxvar}<${-epsilon}?${RangeResults.NEGATIVE}:${zeroRetPartWithNaN}${gapRetPart}${RangeResults.BOTH}`
+    returnPart = `return ${minvar}>${epsilon}||${maxvar}<${-epsilon}?${RangeResults.OTHER}:${zeroRetPartWithNaN}${gapRetPart}${RangeResults.BOTH}`
   }
   return `${argsPart}=>{${preparePart}${markEmbeddedCode};${returnPart}}`
 }
