@@ -1,6 +1,7 @@
 import { parse, predefinedFunctionNames } from './parser'
 import { ASTNode, UniqASTNode, UniqASTOpNode, extractVariables, extractFunctions, astToCode, astToRangeVarNameCode, preEvaluateAST } from './ast'
 import { expanders, GAPMARK, NANMARK } from "./expander"
+import { factorialCode, factorialRangeCode, FACTORIALMARK } from './factorial'
 import { createNameGenerator, MinMaxVarName, CompareMode, UniqASTGenerator, RangeResults } from './util'
 
 type PresetFunc = [args: string[], body: string]
@@ -276,7 +277,9 @@ export function astToValueFunctionCode(uniqAST: UniqASTNode, args: string[]) {
   const [vars, rast] = toProcedure(uniqAST)
   const varNames = new Set([...args, ...vars.keys()])
   const codes = [...vars.entries()].map(([name, ast]) => `const ${name}=${astToCode(ast, varNames)}`)
-  return `(${args.join(',')})=>{${codes.join('\n')}\nreturn ${astToCode(rast, varNames)}}`
+  const code = astToCode(rast, varNames)
+  const pre = code.includes(FACTORIALMARK) ? factorialCode : ''
+  return `${pre};(${args.join(',')})=>{${codes.join('\n')}\nreturn ${code}}`
 }
 
 export function astToRangeFunctionCode(uniqAST: UniqASTNode, args: string[], option: { pos?: boolean; neg?: boolean; zero?: boolean; eq?: boolean }) {
@@ -308,6 +311,7 @@ export function astToRangeFunctionCode(uniqAST: UniqASTNode, args: string[], opt
   }
   const fullCode = [...codes, rcode].join('\n')
 
+  const factTest = fullCode.includes(FACTORIALMARK)
   const gapTest = fullCode.includes(GAPMARK)
   const nanTest = fullCode.includes(NANMARK)
   const gapPrepare = gapTest ? 'let _gap=false;' : ''
@@ -330,7 +334,8 @@ export function astToRangeFunctionCode(uniqAST: UniqASTNode, args: string[], opt
   } else {
     returnPart = `return ${minvar}>${epsilon}||${maxvar}<${-epsilon}?${RangeResults.OTHER}:${zeroRetPartWithNaN}${gapRetPart}${RangeResults.BOTH}`
   }
-  return `${argsPart}=>{${preparePart}${markEmbeddedCode};${returnPart}}`
+  const pre = factTest ? factorialRangeCode : ''
+  return `${pre};${argsPart}=>{${preparePart}${markEmbeddedCode};${returnPart}}`
 }
 
 const presetConstants: Presets = { pi: Math.PI, e: Math.E }

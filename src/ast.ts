@@ -123,6 +123,7 @@ export function astToCode(ast: ASTNode, argNames: Set<string>): string {
   } else if (args.length === 1) {
     const [a] = args
     if (ast.op === '-@') return `(-${a})`
+    if (ast.op === 'fact') return `factorial/*FACTORIAL*/(${a})`
     return `Math.${ast.op}(${a})`
   } else {
     return `Math.${ast.op}(${args.join(',')})`
