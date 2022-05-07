@@ -33,13 +33,12 @@ export function parseMultiple(formulaTexts: string[], argNames: string[], preset
   const varNames = new Set(predefinedVars)
   const varDefRegexp = /^ *([a-zA-Zα-ωΑ-Ω]+) *(\( *[a-zA-Zα-ωΑ-Ω]+(?: *, *[a-zA-Zα-ωΑ-Ω]+)* *\))? *=(.*)/
   const funcNames = new Set(predefinedFunctionNames)
-  if (presets){
-    for (const name in presets) {
-      if (Array.isArray(presets[name])) {
-        funcNames.add(name)
-      } else {
-        varNames.add(name)
-      }
+  presets = { ...defaultPresets, ...presets }
+  for (const name in presets) {
+    if (Array.isArray(presets[name])) {
+      funcNames.add(name)
+    } else {
+      varNames.add(name)
     }
   }
   const maybeKeywords: string[] = []
@@ -348,20 +347,17 @@ export function astToRangeFunctionCode(uniqAST: UniqASTNode, args: string[], opt
   return embedRequiredPartials(`${argsPart}=>{${preparePart}${markEmbeddedCode};${returnPart}}`)
 }
 
-const presetConstants: Presets = { pi: Math.PI, e: Math.E }
-const presetFunctions: Presets = {
+const defaultPresets: Presets = {
+  pi: Math.PI,
+  e: Math.E,
   mod: [['x', 'y'], 'x-floor(x/y)*y']
 }
 
 export const presets2D: Presets = {
-  ...presetConstants,
-  ...presetFunctions,
   r: 'hypot(x,y)',
   theta: 'atan2(y,x)'
 }
 export const presets3D: Presets = {
-  ...presetConstants,
-  ...presetFunctions,
   r: 'hypot(x,y,z)',
   theta: 'atan2(y,x)',
   phi: 'atan2(hypot(x,y),z)',
