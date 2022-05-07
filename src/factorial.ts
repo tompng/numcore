@@ -23,7 +23,7 @@ const factorialMain = `
 export const factorialCode = `
 const fact22over = ${fact22overCode};
 const fact01 = x => ${fact01};
-const ffact01 = x => ${ffact01};
+const ffact01 = x => { const xx = x * (1 - x); return ${ffact01}; };
 const factPLow = ${factPLow};
 const factPHigh = ${factPHigh};
 const factNLow = ${factNLow};
