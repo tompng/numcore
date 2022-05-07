@@ -3,7 +3,7 @@ import type { CompareMode } from './util'
 export const predefinedFunctionNames = new Set([
   'log', 'exp', 'sqrt', 'pow', 'hypot', 'sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'sinh', 'cosh', 'tanh', 'asinh', 'acosh', 'atanh', 'atan2', '√', 'abs', 'min', 'max',
   'arcsin', 'arccos', 'arctan', 'arctanh', 'arccosh', 'arcsinh',
-  'floor', 'ceil', 'round', 'sgn', 'sign', 'signum', 'fact'
+  'floor', 'ceil', 'round', 'sgn', 'sign', 'signum', 'fact', 'factorial',
 ])
 const comparers = new Set(['<', '=', '>', '<=', '>='])
 const operators = new Set(['+', '-', '*', '/', '^', '**'])
@@ -13,7 +13,7 @@ const alias: Record<string, string | undefined> = {
   'arctanh': 'atanh', 'arccosh': 'acosh', 'arcsinh': 'asinh',
   'π': 'pi', 'PI': 'pi', 'E': 'e',
   'th': 'theta', 'θ': 'theta', 'φ': 'phi',
-  'sgn': 'sign', 'signum': 'sign'
+  'sgn': 'sign', 'signum': 'sign', 'factorial': 'fact',
 }
 const tokenSet = new Set([...predefinedFunctionNames, ...Object.keys(alias), ...operators, ...comparers, ',', ' '])
 

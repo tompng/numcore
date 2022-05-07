@@ -38,8 +38,12 @@ const negativeStationaryPoints = [-1.5040830437778632, -2.573498483223832, -3.61
 const negativeDefaultStationaryPoint = -0.73747516328804
 
 const factorialRangeThresholdCode = `const factorialStationaries = [${negativeStationaryPoints.join(',')}];`
-export const factorialRangeCode = factorialCode + factorialRangeThresholdCode
-export const FACTORIALMARK = '/*FACTORIAL*/'
+
+
+export const partials = {
+  factorial: factorialCode,
+  factorialRangeThreshold: factorialRangeThresholdCode,
+}
 
 export function expandFactorial(
   x: number | MinMaxVarName,
@@ -54,7 +58,7 @@ export function expandFactorial(
   const temp1 = namer()
   const temp2 = namer()
   const code = `
-    ${FACTORIALMARK}
+    /*REQUIRE(factorial factorialRangeThreshold)*/
     let ${minvar}, ${maxvar};
     if(-1 < ${xmin}){
       if (${xmin} < ${positiveStationaryPoint}) {

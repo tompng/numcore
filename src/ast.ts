@@ -1,5 +1,6 @@
 import { NameGenerator, UniqASTGenerator, MinMaxVarName } from './util'
 import { Expander } from "./expander"
+import { factorial } from './factorial'
 
 export type ASTOpNode = { op: string; args: ASTNode[] }
 export type ASTNode = string | number | ASTOpNode
@@ -72,6 +73,7 @@ function evalOperatorArgs(op: string, args: number[]) {
       case 'round': return Math.round(a)
       case 'ceil': return Math.ceil(a)
       case 'sign': return Math.sign(a)
+      case 'fact': return factorial(a)
     }
   } else if (args.length !== 0) {
     switch (op) {
@@ -99,6 +101,13 @@ export function preEvaluateAST(ast: UniqASTNode, uniq: UniqASTGenerator, astResu
   return traverse(ast)
 }
 
+const funcAlias2: Record<string, string | undefined> = {
+  atan: 'Math.atan2'
+}
+const funcAlias1: Record<string, string | undefined> = {
+  fact: '/*REQUIRE(factorial)*/factorial'
+}
+
 export function astToCode(ast: ASTNode, argNames: Set<string>): string {
   if (typeof ast === 'number') return ast.toString()
   if (typeof ast === 'string') {
@@ -115,15 +124,15 @@ export function astToCode(ast: ASTNode, argNames: Set<string>): string {
       case '*':
       case '/':
         return `(${a}${ast.op}${b})`
-      case 'atan':
-        return `Math.atan2(${a},${b})`
-      default:
-        return `Math.${ast.op}(${a},${b})`
     }
+    const alias = funcAlias2[ast.op]
+    if (alias) `${alias}(${a},${b})`
+    return `Math.${ast.op}(${a},${b})`
   } else if (args.length === 1) {
     const [a] = args
     if (ast.op === '-@') return `(-${a})`
-    if (ast.op === 'fact') return `factorial/*FACTORIAL*/(${a})`
+    const alias = funcAlias1[ast.op]
+    if (alias) return `${alias}(${a})`
     return `Math.${ast.op}(${a})`
   } else {
     return `Math.${ast.op}(${args.join(',')})`
