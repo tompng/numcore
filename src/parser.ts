@@ -19,23 +19,37 @@ const tokenSet = new Set([...predefinedFunctionNames, ...Object.keys(alias), ...
 
 type ParenGroup = (string | ParenGroup)[]
 function parseParen(input: string): ParenGroup {
-  const stack: ParenGroup[] = [[]]
+  const stack: { abs: boolean; group: ParenGroup }[] = [{ abs: false, group: [] }]
   let current = stack[stack.length - 1]
+  const push = (abs: boolean) => {
+    const group: ParenGroup[] = []
+    current.group.push(group)
+    stack.push(current = { abs, group })
+  }
+  const pop = (abs: boolean) => {
+    const last = stack.pop()!
+    if (last.abs !== abs) throw 'Absolute Paren Mismatch'
+    if (stack.length === 0) throw 'Paren Mismatch'
+    current = stack[stack.length - 1]
+  }
   for (const c of input) {
     if (c === '(') {
-      const child: ParenGroup = []
-      current.push(child)
-      stack.push(current = child)
+      push(false)
     } else if (c === ')') {
-      stack.pop()
-      if (stack.length === 0) throw 'Paren Mismatch'
-      current = stack[stack.length - 1]
+      pop(false)
+    } else if (c === '|') {
+      if (stack[stack.length - 1].abs) {
+        pop(true)
+      } else {
+        current.group.push('a', 'b', 's')
+        push(true)
+      }
     } else {
-      current.push(c)
+      current.group.push(c)
     }
   }
   if (stack.length !== 1) throw 'Paren Mismatch'
-  return current
+  return current.group
 }
 
 function convertAlias(s: string) {
@@ -84,7 +98,7 @@ function tokenize(group: ParenGroup, tokens: Tokens): TokenParenGroup {
 }
 
 export function parse(s: string, extraVariables?: Set<string>, extraFunctions?: Set<string>) {
-  const pg = parseParen(s)
+  const pg = parseParen(s.replace(/\s/g, ' '))
   const tokens = { set: new Set(tokenSet), max: 0 }
   const functions = new Set(predefinedFunctionNames)
   if (extraVariables) extraVariables.forEach(t => tokens.set.add(t))
