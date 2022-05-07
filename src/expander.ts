@@ -1,6 +1,7 @@
 import { MinMaxVarName, NameGenerator, RangeResults } from './util'
 
 export type Expander = (args: (MinMaxVarName | number)[], namer: NameGenerator) => [MinMaxVarName | number, string]
+import { expandFactorial } from './factorial'
 
 const { EQNAN } = RangeResults
 
@@ -10,7 +11,7 @@ export const NANMARK = '/*NAN*/'
 function raiseArgNumError(name: string) {
   throw `Wrong number of arguments: ${name}`
 }
-function assertArgNum(name: string, args: any[], n: number) {
+export function assertArgNum(name: string, args: any[], n: number) {
   if (args.length !== n) raiseArgNumError(name)
 }
 
@@ -415,6 +416,11 @@ const atanOverload: Expander = (args, namer) => {
   return atan(args, namer)
 }
 
+const fact: Expander = (args, namer) => {
+  assertArgNum('factorial', args, 1)
+  return expandFactorial(args[0], namer, GAPMARK)
+}
+
 export const expanders = {
   '+': add,
   '-': sub,
@@ -447,4 +453,5 @@ export const expanders = {
   ceil,
   round,
   sign,
+  fact,
 }

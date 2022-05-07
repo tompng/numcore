@@ -1,6 +1,7 @@
 import { parse, predefinedFunctionNames } from './parser'
 import { ASTNode, UniqASTNode, UniqASTOpNode, extractVariables, extractFunctions, astToCode, astToRangeVarNameCode, preEvaluateAST } from './ast'
 import { expanders, GAPMARK, NANMARK } from "./expander"
+import { partials as factorialPartials } from './factorial'
 import { createNameGenerator, MinMaxVarName, CompareMode, UniqASTGenerator, RangeResults } from './util'
 
 type PresetFunc = [args: string[], body: string]
@@ -11,6 +12,20 @@ type Equation = { type: 'eq'; mode: CompareMode; deps: string[]; ast: UniqASTNod
 type Definition = VarDef | FuncDef
 export type Formula = Definition | Equation
 export const epsilon = 1e-15
+
+const partials: Record<string, string> = { ...factorialPartials }
+function embedRequiredPartials(code: string) {
+  const pattern = /\/\* *REQUIRE *\([\w ]*\) *\*\//g
+  const trimmed = code.replace(pattern, '')
+  const matches = code.match(pattern) ?? []
+  const requires = matches.flatMap(m => m.match(/\((.*)\)/)![0].match(/\w+/g) ?? [])
+  const requiredCodes = [...new Set(requires)].map(name => {
+    const code = partials[name]
+    if (!code) throw `require error: ${name}`
+    return code
+  })
+  return [...requiredCodes, trimmed].join(';')
+}
 
 export function parseMultiple(formulaTexts: string[], argNames: string[], presets?: Presets) {
   const uniq = new UniqASTGenerator()
@@ -276,7 +291,8 @@ export function astToValueFunctionCode(uniqAST: UniqASTNode, args: string[]) {
   const [vars, rast] = toProcedure(uniqAST)
   const varNames = new Set([...args, ...vars.keys()])
   const codes = [...vars.entries()].map(([name, ast]) => `const ${name}=${astToCode(ast, varNames)}`)
-  return `(${args.join(',')})=>{${codes.join('\n')}\nreturn ${astToCode(rast, varNames)}}`
+  const rcode = astToCode(rast, varNames)
+  return embedRequiredPartials(`(${args.join(',')})=>{${codes.join('\n')}\nreturn ${rcode}}`)
 }
 
 export function astToRangeFunctionCode(uniqAST: UniqASTNode, args: string[], option: { pos?: boolean; neg?: boolean; zero?: boolean; eq?: boolean }) {
@@ -307,7 +323,6 @@ export function astToRangeFunctionCode(uniqAST: UniqASTNode, args: string[], opt
     return `${argsPart}=>${val}`
   }
   const fullCode = [...codes, rcode].join('\n')
-
   const gapTest = fullCode.includes(GAPMARK)
   const nanTest = fullCode.includes(NANMARK)
   const gapPrepare = gapTest ? 'let _gap=false;' : ''
@@ -330,7 +345,7 @@ export function astToRangeFunctionCode(uniqAST: UniqASTNode, args: string[], opt
   } else {
     returnPart = `return ${minvar}>${epsilon}||${maxvar}<${-epsilon}?${RangeResults.OTHER}:${zeroRetPartWithNaN}${gapRetPart}${RangeResults.BOTH}`
   }
-  return `${argsPart}=>{${preparePart}${markEmbeddedCode};${returnPart}}`
+  return embedRequiredPartials(`${argsPart}=>{${preparePart}${markEmbeddedCode};${returnPart}}`)
 }
 
 const presetConstants: Presets = { pi: Math.PI, e: Math.E }
