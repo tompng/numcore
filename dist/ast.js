@@ -33,6 +33,7 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.astToRangeVarNameCode = exports.astToCode = exports.preEvaluateAST = exports.extractFunctions = exports.extractVariables = void 0;
+var factorial_1 = require("./factorial");
 function extractVariables(ast) {
     var set = new Set();
     function extract(ast) {
@@ -130,6 +131,7 @@ function evalOperatorArgs(op, args) {
             case 'round': return Math.round(a);
             case 'ceil': return Math.ceil(a);
             case 'sign': return Math.sign(a);
+            case 'fact': return factorial_1.factorial(a);
         }
     }
     else if (args.length !== 0) {
@@ -162,6 +164,12 @@ function preEvaluateAST(ast, uniq, astResult) {
     return traverse(ast);
 }
 exports.preEvaluateAST = preEvaluateAST;
+var funcAlias2 = {
+    atan: 'Math.atan2'
+};
+var funcAlias1 = {
+    fact: '/*REQUIRE(factorial)*/factorial'
+};
 function astToCode(ast, argNames) {
     if (typeof ast === 'number')
         return ast.toString();
@@ -180,16 +188,19 @@ function astToCode(ast, argNames) {
             case '*':
             case '/':
                 return "(" + a + ast.op + b + ")";
-            case 'atan':
-                return "Math.atan2(" + a + "," + b + ")";
-            default:
-                return "Math." + ast.op + "(" + a + "," + b + ")";
         }
+        var alias = funcAlias2[ast.op];
+        if (alias)
+            alias + "(" + a + "," + b + ")";
+        return "Math." + ast.op + "(" + a + "," + b + ")";
     }
     else if (args.length === 1) {
         var _b = __read(args, 1), a = _b[0];
         if (ast.op === '-@')
             return "(-" + a + ")";
+        var alias = funcAlias1[ast.op];
+        if (alias)
+            return alias + "(" + a + ")";
         return "Math." + ast.op + "(" + a + ")";
     }
     else {

@@ -21,8 +21,9 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from) {
     return to;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.expanders = exports.NANMARK = exports.GAPMARK = void 0;
+exports.expanders = exports.assertArgNum = exports.NANMARK = exports.GAPMARK = void 0;
 var util_1 = require("./util");
+var factorial_1 = require("./factorial");
 var EQNAN = util_1.RangeResults.EQNAN;
 exports.GAPMARK = '/*GAP*/';
 exports.NANMARK = '/*NAN*/';
@@ -33,6 +34,7 @@ function assertArgNum(name, args, n) {
     if (args.length !== n)
         raiseArgNumError(name);
 }
+exports.assertArgNum = assertArgNum;
 var add = function (_a, namer) {
     var _b = __read(_a, 2), a = _b[0], b = _b[1];
     if (typeof a === 'number' && typeof b === 'number')
@@ -457,6 +459,10 @@ var atanOverload = function (args, namer) {
         return atan2(args, namer);
     return atan(args, namer);
 };
+var fact = function (args, namer) {
+    assertArgNum('factorial', args, 1);
+    return factorial_1.expandFactorial(args[0], namer, exports.GAPMARK);
+};
 exports.expanders = {
     '+': add,
     '-': sub,
@@ -489,4 +495,5 @@ exports.expanders = {
     ceil: ceil,
     round: round,
     sign: sign,
+    fact: fact,
 };

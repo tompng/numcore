@@ -36,7 +36,7 @@ exports.parse = exports.predefinedFunctionNames = void 0;
 exports.predefinedFunctionNames = new Set([
     'log', 'exp', 'sqrt', 'pow', 'hypot', 'sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'sinh', 'cosh', 'tanh', 'asinh', 'acosh', 'atanh', 'atan2', '√', 'abs', 'min', 'max',
     'arcsin', 'arccos', 'arctan', 'arctanh', 'arccosh', 'arcsinh',
-    'floor', 'ceil', 'round', 'sgn', 'sign', 'signum'
+    'floor', 'ceil', 'round', 'sgn', 'sign', 'signum', 'fact', 'factorial',
 ]);
 var comparers = new Set(['<', '=', '>', '<=', '>=']);
 var operators = new Set(['+', '-', '*', '/', '^', '**']);
@@ -46,29 +46,46 @@ var alias = {
     'arctanh': 'atanh', 'arccosh': 'acosh', 'arcsinh': 'asinh',
     'π': 'pi', 'PI': 'pi', 'E': 'e',
     'th': 'theta', 'θ': 'theta', 'φ': 'phi',
-    'sgn': 'sign', 'signum': 'sign'
+    'sgn': 'sign', 'signum': 'sign', 'factorial': 'fact',
 };
 var tokenSet = new Set(__spreadArray(__spreadArray(__spreadArray(__spreadArray(__spreadArray([], __read(exports.predefinedFunctionNames)), __read(Object.keys(alias))), __read(operators)), __read(comparers)), [',', ' ']));
 function parseParen(input) {
     var e_1, _a;
-    var stack = [[]];
+    var stack = [{ abs: false, group: [] }];
     var current = stack[stack.length - 1];
+    var push = function (abs) {
+        var group = [];
+        current.group.push(group);
+        stack.push(current = { abs: abs, group: group });
+    };
+    var pop = function (abs) {
+        var last = stack.pop();
+        if (last.abs !== abs)
+            throw 'Absolute Paren Mismatch';
+        if (stack.length === 0)
+            throw 'Paren Mismatch';
+        current = stack[stack.length - 1];
+    };
     try {
         for (var input_1 = __values(input), input_1_1 = input_1.next(); !input_1_1.done; input_1_1 = input_1.next()) {
             var c = input_1_1.value;
             if (c === '(') {
-                var child = [];
-                current.push(child);
-                stack.push(current = child);
+                push(false);
             }
             else if (c === ')') {
-                stack.pop();
-                if (stack.length === 0)
-                    throw 'Paren Mismatch';
-                current = stack[stack.length - 1];
+                pop(false);
+            }
+            else if (c === '|') {
+                if (stack[stack.length - 1].abs) {
+                    pop(true);
+                }
+                else {
+                    current.group.push('a', 'b', 's');
+                    push(true);
+                }
             }
             else {
-                current.push(c);
+                current.group.push(c);
             }
         }
     }
@@ -81,7 +98,7 @@ function parseParen(input) {
     }
     if (stack.length !== 1)
         throw 'Paren Mismatch';
-    return current;
+    return current.group;
 }
 function convertAlias(s) {
     return alias[s] || s;
@@ -130,7 +147,7 @@ function tokenize(group, tokens) {
 }
 function parse(s, extraVariables, extraFunctions) {
     var e_2, _a;
-    var pg = parseParen(s);
+    var pg = parseParen(s.replace(/\s/g, ' '));
     var tokens = { set: new Set(tokenSet), max: 0 };
     var functions = new Set(exports.predefinedFunctionNames);
     if (extraVariables)

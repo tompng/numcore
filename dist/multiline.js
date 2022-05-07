@@ -10,17 +10,6 @@ var __assign = (this && this.__assign) || function () {
     };
     return __assign.apply(this, arguments);
 };
-var __values = (this && this.__values) || function(o) {
-    var s = typeof Symbol === "function" && Symbol.iterator, m = s && o[s], i = 0;
-    if (m) return m.call(o);
-    if (o && typeof o.length === "number") return {
-        next: function () {
-            if (o && i >= o.length) o = void 0;
-            return { value: o && o[i++], done: !o };
-        }
-    };
-    throw new TypeError(s ? "Object is not iterable." : "Symbol.iterator is not defined.");
-};
 var __read = (this && this.__read) || function (o, n) {
     var m = typeof Symbol === "function" && o[Symbol.iterator];
     if (!m) return o;
@@ -42,13 +31,40 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from) {
         to[j] = from[i];
     return to;
 };
+var __values = (this && this.__values) || function(o) {
+    var s = typeof Symbol === "function" && Symbol.iterator, m = s && o[s], i = 0;
+    if (m) return m.call(o);
+    if (o && typeof o.length === "number") return {
+        next: function () {
+            if (o && i >= o.length) o = void 0;
+            return { value: o && o[i++], done: !o };
+        }
+    };
+    throw new TypeError(s ? "Object is not iterable." : "Symbol.iterator is not defined.");
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.presets3D = exports.presets2D = exports.astToRangeFunctionCode = exports.astToValueFunctionCode = exports.parseMultiple = exports.epsilon = void 0;
 var parser_1 = require("./parser");
 var ast_1 = require("./ast");
 var expander_1 = require("./expander");
+var factorial_1 = require("./factorial");
 var util_1 = require("./util");
 exports.epsilon = 1e-15;
+var partials = __assign({}, factorial_1.partials);
+function embedRequiredPartials(code) {
+    var _a;
+    var pattern = /\/\* *REQUIRE *\([\w ]*\) *\*\//g;
+    var trimmed = code.replace(pattern, '');
+    var matches = (_a = code.match(pattern)) !== null && _a !== void 0 ? _a : [];
+    var requires = matches.flatMap(function (m) { var _a; return (_a = m.match(/\((.*)\)/)[0].match(/\w+/g)) !== null && _a !== void 0 ? _a : []; });
+    var requiredCodes = __spreadArray([], __read(new Set(requires))).map(function (name) {
+        var code = partials[name];
+        if (!code)
+            throw "require error: " + name;
+        return code;
+    });
+    return __spreadArray(__spreadArray([], __read(requiredCodes)), [trimmed]).join(';');
+}
 function parseMultiple(formulaTexts, argNames, presets) {
     var e_1, _a, e_2, _b;
     var uniq = new util_1.UniqASTGenerator();
@@ -56,14 +72,13 @@ function parseMultiple(formulaTexts, argNames, presets) {
     var varNames = new Set(predefinedVars);
     var varDefRegexp = /^ *([a-zA-Zα-ωΑ-Ω]+) *(\( *[a-zA-Zα-ωΑ-Ω]+(?: *, *[a-zA-Zα-ωΑ-Ω]+)* *\))? *=(.*)/;
     var funcNames = new Set(parser_1.predefinedFunctionNames);
-    if (presets) {
-        for (var name in presets) {
-            if (Array.isArray(presets[name])) {
-                funcNames.add(name);
-            }
-            else {
-                varNames.add(name);
-            }
+    presets = __assign(__assign({}, defaultPresets), presets);
+    for (var name in presets) {
+        if (Array.isArray(presets[name])) {
+            funcNames.add(name);
+        }
+        else {
+            varNames.add(name);
         }
     }
     var maybeKeywords = [];
@@ -449,7 +464,8 @@ function astToValueFunctionCode(uniqAST, args) {
         var _b = __read(_a, 2), name = _b[0], ast = _b[1];
         return "const " + name + "=" + ast_1.astToCode(ast, varNames);
     });
-    return "(" + args.join(',') + ")=>{" + codes.join('\n') + "\nreturn " + ast_1.astToCode(rast, varNames) + "}";
+    var rcode = ast_1.astToCode(rast, varNames);
+    return embedRequiredPartials("(" + args.join(',') + ")=>{" + codes.join('\n') + "\nreturn " + rcode + "}");
 }
 exports.astToValueFunctionCode = astToValueFunctionCode;
 function astToRangeFunctionCode(uniqAST, args, option) {
@@ -515,15 +531,23 @@ function astToRangeFunctionCode(uniqAST, args, option) {
     else {
         returnPart = "return " + minvar + ">" + exports.epsilon + "||" + maxvar + "<" + -exports.epsilon + "?" + util_1.RangeResults.OTHER + ":" + zeroRetPartWithNaN + gapRetPart + util_1.RangeResults.BOTH;
     }
-    return argsPart + "=>{" + preparePart + markEmbeddedCode + ";" + returnPart + "}";
+    return embedRequiredPartials(argsPart + "=>{" + preparePart + markEmbeddedCode + ";" + returnPart + "}");
 }
 exports.astToRangeFunctionCode = astToRangeFunctionCode;
-var presetConstants = { pi: Math.PI, e: Math.E };
-var presetFunctions = {
+var defaultPresets = {
+    pi: Math.PI,
+    e: Math.E,
     mod: [['x', 'y'], 'x-floor(x/y)*y']
 };
-exports.presets2D = __assign(__assign(__assign({}, presetConstants), presetFunctions), { r: 'hypot(x,y)', theta: 'atan2(y,x)' });
-exports.presets3D = __assign(__assign(__assign({}, presetConstants), presetFunctions), { r: 'hypot(x,y,z)', theta: 'atan2(y,x)', phi: 'atan2(hypot(x,y),z)' });
+exports.presets2D = {
+    r: 'hypot(x,y)',
+    theta: 'atan2(y,x)'
+};
+exports.presets3D = {
+    r: 'hypot(x,y,z)',
+    theta: 'atan2(y,x)',
+    phi: 'atan2(hypot(x,y),z)',
+};
 function duplicates(elements) {
     var e_11, _a;
     var dups = new Set();

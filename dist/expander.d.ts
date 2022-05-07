@@ -2,6 +2,7 @@ import { MinMaxVarName, NameGenerator } from './util';
 export declare type Expander = (args: (MinMaxVarName | number)[], namer: NameGenerator) => [MinMaxVarName | number, string];
 export declare const GAPMARK = "/*GAP*/";
 export declare const NANMARK = "/*NAN*/";
+export declare function assertArgNum(name: string, args: any[], n: number): void;
 export declare const expanders: {
     '+': Expander;
     '-': Expander;
@@ -34,4 +35,5 @@ export declare const expanders: {
     ceil: Expander;
     round: Expander;
     sign: Expander;
+    fact: Expander;
 };
