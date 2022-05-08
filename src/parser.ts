@@ -5,7 +5,8 @@ export const predefinedFunctionNames = new Set([
   'arcsin', 'arccos', 'arctan', 'arctanh', 'arccosh', 'arcsinh',
   'floor', 'ceil', 'round', 'sgn', 'sign', 'signum', 'fact', 'factorial',
 ])
-const comparers = new Set(['<', '=', '>', '<=', '>='])
+const comparers = new Set(['<', '=', '>', '<=', '>=', '≤', '≥'])
+const comparerAlias: Record<string, string> = { '≤': '<=', '≥': '>=' }
 const operators = new Set(['+', '-', '*', '/', '^', '**'])
 const alias: Record<string, string | undefined> = {
   '**': '^', '√': 'sqrt',
@@ -130,16 +131,17 @@ function buildRootAST(group: TokenParenGroup, functionNames: Set<string>): [ASTN
     if (Array.isArray(ast)) throw 'Unexpected comma'
     return [ast, null]
   }
-  const cmp = group[idx] as CompareMode
+  const cmp = group[idx] as string
+  const compareMode = (comparerAlias[cmp] ?? cmp) as CompareMode
   const left = buildAST(group.slice(0, idx), functionNames)
   const right = buildAST(group.slice(idx + 1), functionNames)
   if (Array.isArray(left) || Array.isArray(right)) throw 'Unexpected comma'
   if (left === 0) {
-    return [right, flipComparator(cmp)]
+    return [right, flipComparator(compareMode)]
   } else if (right === 0) {
-    return [left, cmp]
+    return [left, compareMode]
   } else {
-    return [{ op: '-', args: [left, right] }, cmp]
+    return [{ op: '-', args: [left, right] }, compareMode]
   }
 }
 type ArgGroup = ASTNode[]

@@ -1,11 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.parse = exports.astToValueFunctionCode = exports.astToRangeFunctionCode = exports.presets3D = exports.presets2D = exports.RangeResults = exports.epsilon = exports.extractVariables = void 0;
+exports.parse = exports.astToValueFunctionCode = exports.astToRangeFunctionCode = exports.presets3D = exports.presets2D = exports.RangeResults = exports.convertLatex = exports.epsilon = exports.extractVariables = void 0;
 var multiline_1 = require("./multiline");
 var ast_1 = require("./ast");
 Object.defineProperty(exports, "extractVariables", { enumerable: true, get: function () { return ast_1.extractVariables; } });
 var multiline_2 = require("./multiline");
 Object.defineProperty(exports, "epsilon", { enumerable: true, get: function () { return multiline_2.epsilon; } });
+var latex_1 = require("./latex");
+Object.defineProperty(exports, "convertLatex", { enumerable: true, get: function () { return latex_1.convertLatex; } });
 var util_1 = require("./util");
 Object.defineProperty(exports, "RangeResults", { enumerable: true, get: function () { return util_1.RangeResults; } });
 var multiline_3 = require("./multiline");

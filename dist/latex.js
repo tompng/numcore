@@ -24,11 +24,18 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.convertLatex = void 0;
 function convertLatex(s) {
     s = s.replaceAll(/\\operatorname\{[a-zA-Z0-9]+\}/g, function (a) { return a.substring(14, a.length - 1); });
-    var block = parse1(s);
+    var block = parse(s);
     return convert(block);
 }
 exports.convertLatex = convertLatex;
-function parse1(s) {
+var commandAlias = {
+    'gt': '>',
+    'ge': '≥',
+    'le': '≤',
+    'lt': '<'
+};
+function parse(s) {
+    var _a;
     var index = 0;
     var chars = __spreadArray([], __read(s));
     var root = [];
@@ -70,7 +77,7 @@ function parse1(s) {
                 current = stack[stack.length - 1];
             }
             else {
-                current.push(cmd);
+                current.push((_a = commandAlias[cmd]) !== null && _a !== void 0 ? _a : cmd);
             }
         }
         else {

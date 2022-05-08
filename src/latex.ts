@@ -1,6 +1,6 @@
 export function convertLatex(s: string) {
   s = s.replaceAll(/\\operatorname\{[a-zA-Z0-9]+\}/g, a => a.substring(14, a.length - 1))
-  const block = parse1(s)
+  const block = parse(s)
   return convert(block)
 }
 
@@ -14,7 +14,14 @@ type AbsGroup = {
   children: Block
 }
 
-function parse1(s: string) {
+const commandAlias: Record<string, string> = {
+  'gt': '>',
+  'ge': '≥',
+  'le': '≤',
+  'lt': '<'
+}
+
+function parse(s: string) {
   let index = 0
   const chars = [...s]
   const root: Block = []
@@ -50,7 +57,7 @@ function parse1(s: string) {
         stack.pop()
         current = stack[stack.length - 1]
       } else {
-        current.push(cmd)
+        current.push(commandAlias[cmd] ?? cmd)
       }
     } else {
       current.push(c)

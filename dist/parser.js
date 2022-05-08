@@ -38,7 +38,8 @@ exports.predefinedFunctionNames = new Set([
     'arcsin', 'arccos', 'arctan', 'arctanh', 'arccosh', 'arcsinh',
     'floor', 'ceil', 'round', 'sgn', 'sign', 'signum', 'fact', 'factorial',
 ]);
-var comparers = new Set(['<', '=', '>', '<=', '>=']);
+var comparers = new Set(['<', '=', '>', '<=', '>=', '≤', '≥']);
+var comparerAlias = { '≤': '<=', '≥': '>=' };
 var operators = new Set(['+', '-', '*', '/', '^', '**']);
 var alias = {
     '**': '^', '√': 'sqrt',
@@ -185,6 +186,7 @@ function flipComparator(cmp) {
     }
 }
 function buildRootAST(group, functionNames) {
+    var _a;
     var idx = group.findIndex(function (item) { return typeof item === 'string' && comparers.has(item); });
     if (idx === -1) {
         var ast = buildAST(group, functionNames);
@@ -193,18 +195,19 @@ function buildRootAST(group, functionNames) {
         return [ast, null];
     }
     var cmp = group[idx];
+    var compareMode = ((_a = comparerAlias[cmp]) !== null && _a !== void 0 ? _a : cmp);
     var left = buildAST(group.slice(0, idx), functionNames);
     var right = buildAST(group.slice(idx + 1), functionNames);
     if (Array.isArray(left) || Array.isArray(right))
         throw 'Unexpected comma';
     if (left === 0) {
-        return [right, flipComparator(cmp)];
+        return [right, flipComparator(compareMode)];
     }
     else if (right === 0) {
-        return [left, cmp];
+        return [left, compareMode];
     }
     else {
-        return [{ op: '-', args: [left, right] }, cmp];
+        return [{ op: '-', args: [left, right] }, compareMode];
     }
 }
 var oplist = [new Set(['+', '-']), new Set(['*', '/', ' '])];
