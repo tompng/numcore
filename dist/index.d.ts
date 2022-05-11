@@ -1,7 +1,7 @@
 import { Formula, Presets } from "./multiline";
 export { UniqASTNode, extractVariables } from './ast';
 export { epsilon } from './multiline';
-export { convertLatex } from './latex';
+export { texToPlain } from './latex';
 import type { RangeResultType } from './util';
 export { RangeResults, CompareMode, RangeResultType, } from './util';
 export declare type RangeFunction2D = (xmin: number, xmax: number, ymin: number, ymax: number) => RangeResultType;

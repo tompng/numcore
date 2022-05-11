@@ -1,4 +1,4 @@
-export function convertLatex(s: string) {
+export function texToPlain(s: string) {
   s = s.replaceAll(/\\operatorname\{[a-zA-Z0-9]+\}/g, a => a.substring(14, a.length - 1))
   const block = parse(s)
   return convert(block)
@@ -7,13 +7,20 @@ export function convertLatex(s: string) {
 type Block = (ParenGroup | AbsGroup | Block | string)[]
 type ParenGroup = {
   type: 'paren'
+  command: boolean
   children: Block
 }
 type AbsGroup = {
   type: 'abs'
+  command: boolean
   children: Block
 }
-
+type BlockGroup = {
+  type: 'block'
+  command: boolean
+  children: Block
+}
+type Group = ParenGroup | AbsGroup | BlockGroup 
 const commandAlias: Record<string, string> = {
   'gt': '>',
   'ge': '≥',
@@ -21,12 +28,11 @@ const commandAlias: Record<string, string> = {
   'lt': '<'
 }
 
-function parse(s: string) {
+function parse(s: string): Block {
   let index = 0
   const chars = [...s]
-  const root: Block = []
-  let current = root
-  const stack = [root]
+  let current: Group = { type: 'block', command: false, children: [] }
+  const stack: Group[] = [current]
   function takeCommand() {
     let cmd = ''
     while (index < chars.length && 'a' <= chars[index] && chars[index] <= 'z') {
@@ -35,35 +41,64 @@ function parse(s: string) {
     }
     return cmd
   }
+  function open(type: Group['type'], command: boolean) {
+    const group: Group = { type, command, children: [] }
+    current.children.push(group.type === 'block' ? group.children : group)
+    stack.push(current = group)
+  }
+  function close(type: Group['type'], command: boolean) {
+    const last = stack.pop()
+    current = stack[stack.length - 1]
+    if (last == null || current == null || last.type !== type || last.command !== command) throw 'Paren mismatch'
+  }
   while (index < chars.length) {
     const c = chars[index++]
     if (c === '{') {
-      const children: Block = []
-      current.push(children)
-      stack.push(current = children)
+      open('block', true)
     } else if (c === '}') {
-      stack.pop()
-      current = stack[stack.length - 1]
+      close('block', true)
     } else if (c === '\\') {
       const cmd = takeCommand()
       if (cmd === 'left' || cmd === 'mleft') {
         const k = chars[index++]
-        const children: Block = []
-        if (k === '|') current.push({ type: 'abs', children })
-        else current.push({ type: 'paren', children })
-        stack.push(current = children)
+        if (k === '|') {
+          open('abs', true)
+        } else if (k === '(') {
+          open('paren', true)
+        } else {
+          throw `Unsupported paren "${k}"`
+        }
       } else if (cmd === 'right' || cmd === 'mright') {
-        index++
-        stack.pop()
-        current = stack[stack.length - 1]
+        const k = chars[index++]
+        if (k === '|') {
+          close('abs', true)
+        } else if (k === ')') {
+          close('paren', true)
+        } else {
+          throw `Unsupported paren "${k}"`
+        }
       } else {
-        current.push(commandAlias[cmd] ?? cmd)
+        current.children.push(commandAlias[cmd] ?? cmd)
+      }
+    } else if (c === '(' || c === ')' || c === '|') {
+      if (c === '|') {
+        const last = stack[stack.length - 1]
+        if (last && last.type === 'abs' && !last.command) {
+          close('abs', false)
+        } else {
+          open('abs', false)
+        }
+      } else if (c === '(') {
+        open('paren', false)
+      } else if (c === ')') {
+        close('paren', false)
       }
     } else {
-      current.push(c)
+      current.children.push(c)
     }
   }
-  return root
+  if (stack.length !== 1) throw 'Too few paren'
+  return stack[0].children
 }
 
 function convert(block: Block): string {

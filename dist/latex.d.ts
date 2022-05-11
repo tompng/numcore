@@ -1,1 +1,1 @@
-export declare function convertLatex(s: string): string;
+export declare function texToPlain(s: string): string;
