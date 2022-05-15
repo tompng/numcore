@@ -7,7 +7,7 @@ export const predefinedFunctionNames = new Set([
 ])
 const comparers = new Set(['<', '=', '>', '<=', '>=', '≤', '≥'])
 const comparerAlias: Record<string, string> = { '≤': '<=', '≥': '>=' }
-const operators = new Set(['+', '-', '*', '/', '^', '**'])
+const operators = new Set(['+', '-', '*', '/', '^', '**', '!'])
 const alias: Record<string, string | undefined> = {
   '**': '^', '√': 'sqrt',
   'arcsin': 'asin', 'arccos': 'acos', 'arctan': 'atan',
@@ -145,73 +145,157 @@ function buildRootAST(group: TokenParenGroup, functionNames: Set<string>): [ASTN
   }
 }
 type ArgGroup = ASTNode[]
-const oplist = [new Set(['+', '-']), new Set(['*', '/', ' '])]
-function buildFuncMultPow(group: TokenParenGroup, functionNames: Set<string>): ASTNode {
-  type Args = { type: 'args'; value: ArgGroup }
-  type Paren = { type: 'paren', value: ASTNode }
-  const values: (string | number | Args | Paren)[] = group.map(g => {
+const oplist = [new Set(['+', '-']), new Set(['*', '/'])]
+
+// (group|num|arg) !
+// (group|num|arg) ^ (group|num|arg)
+// func ^ num (group|args)
+// func ^ arg group
+// func (numargs|group)
+// func group !
+// func group ^ (group|num|arg)
+type ParseStateData = {
+  'default': []
+  '(group|num|arg)': [ASTNode]
+  '(group|num|arg) ^': [ASTNode]
+  'func' : [string]
+  'func ^' : [string]
+  'func ^ (num|arg)' : [string, number | string]
+  'func numargs' : [string, ASTNode]
+  'func group': [string, ASTNode[]]
+  'func group ^': [string, ASTNode[]]
+}
+type ParseState = { [key in keyof ParseStateData]: [key, ...ParseStateData[key]] }[keyof ParseStateData]
+type Args = { type: 'args'; value: ArgGroup }
+type Paren = { type: 'paren', value: ASTNode }
+type Node = string | number | Args | Paren
+type Consumer = { [key in keyof ParseStateData]: (node: Node | null, ...args: ParseStateData[key]) => ParseState }
+function assertIndependentNode<T>(node: T, functionNames?: Set<string>): T {
+  if (typeof node === 'string') {
+    if (node === '!' || node === '^') throw 'Unexpected operator. Wrap with paren.'
+    if (functionNames && functionNames.has(node)) throw 'Unexpect function. Wrap with paren.'
+  }
+  return node
+}
+function isIndependentNode(node: Node, functionNames?: Set<string>) {
+  if (typeof node === 'string') {
+    if (node === ' ' || node === '!' || node === '^') return false
+    if (functionNames && functionNames.has(node)) return false
+  }
+  return true
+}
+function unwrapNode(node: Node, functionNames?: Set<string>): ASTNode {
+  if (typeof node === 'object') {
+    if (node.type === 'args') throw 'Unexpect function argument'
+    return node.value
+  }
+  return assertIndependentNode(node, functionNames)
+}
+
+function buildFuncMultPowBang(group: TokenParenGroup, functionNames: Set<string>): ASTNode {
+  const values: Node[] = group.map(g => {
     if (typeof g !== 'object') return g
     const astOrArg = buildAST(g, functionNames)
     return Array.isArray(astOrArg) ? { type: 'args' as const, value: astOrArg } : { type: 'paren' as const, value: astOrArg }
   })
   const mults: ASTNode[] = []
-  let concatable = false
-  let pow: ASTNode | undefined
-  for (let index = values.length - 1; index >= 0; index--) {
-    const v = values[index]
-    if (typeof v === 'object') {
-      const prev = index > 0 && values[index - 1]
-      const isPrevFunc = typeof prev === 'string' && functionNames.has(prev)
-      if (v.type === 'args') {
-        if (!isPrevFunc) throw 'Function Required'
-        const fcall = { op: prev, args: v.value } as ASTNode
-        if (pow != null) {
-          mults.unshift({ op: '^', args: [fcall, pow] })
-          pow = undefined
-        } else {
-          mults.unshift(fcall)
-        }
-        index--
-      } else {
-        if (pow != null && !isPrevFunc) {
-          mults.unshift({ op: '^', args: [v.value, pow] })
-          pow = undefined
-        } else {
-          mults.unshift(v.value)
-        }
+  const consumer: Consumer = {
+    'default'(node) {
+      if (node == null) return ['default']
+      if (node === ' ') return ['default']
+      if (typeof node === 'string' && functionNames.has(node)) {
+        return ['func', node]
       }
-      concatable = false
-    } else if (v === '^') {
-      if (mults[0] == null || pow != null) throw `Error after ^`
-      pow = mults.shift()
-      concatable = false
-    } else if (typeof v === 'string' && functionNames.has(v)) {
-      if (mults[0] == null) throw `Function Arg Required: ${v}`
-      if (pow != null) {
-        mults[0] = { op: '^', args: [{ op: v, args: [mults[0]] }, pow] }
-        pow = undefined
-      } else {
-        mults[0] = { op: v, args: [mults[0]] }
+      return ['(group|num|arg)', unwrapNode(node)]
+    },
+    '(group|num|arg)'(node, value): ParseState {
+      if (node == null) {
+        mults.push(value)
+        return ['default']
       }
-      concatable = false
-    } else {
-      if (pow != null) {
-        mults.unshift({ op: '^', args: [v, pow] })
-        pow = undefined
-      } else if (concatable) {
-        mults[0] = { op: '*', args: [v, mults[0]] }
-      } else {
-        mults.unshift(v)
+      if (node === ' ') return ['(group|num|arg)', value]
+      if (node === '^') return ['(group|num|arg) ^', value]
+      if (node === '!') {
+        mults.push({ op: 'fact', args: [value] })
+        return ['default']
       }
-      concatable = true
+      mults.push(value)
+      return this.default(node)
+    },
+    '(group|num|arg) ^'(node, value) {
+      if (node == null) throw 'Unexpect end of input after ^'
+      if (node === ' ') return ['(group|num|arg) ^', value]
+      mults.push({ op: '^', args: [value, unwrapNode(node, functionNames)]})
+      return ['default']
+    },
+    'func'(node, name) {
+      if (node == null) throw 'Unexpect end of input after function'
+      if (node === ' ') return ['func', name]
+      if (node === '^') return ['func ^', name]
+      if (typeof node === 'object') {
+        return ['func group', name, node.type === 'args' ? node.value : [node.value]]
+      } else {
+        return ['func numargs', name, assertIndependentNode(node, functionNames)]
+      }
+    },
+    'func numargs'(node, func, numargs) {
+      if (node == null) {
+        mults.push({ op: func, args: [numargs] })
+        return ['default']
+      }
+      if (typeof node !== 'object' && isIndependentNode(node, functionNames)) {
+        return ['func numargs', func, { op: '*', args: [numargs, node] }]
+      }
+      mults.push({ op: func, args: [numargs] })
+      return this.default(node)
+    },
+    'func ^'(node, func) {
+      if (node == null) throw 'Unexpect end of input after ^'
+      if (node === ' ') return ['func ^', func]
+      if (typeof node === 'object') throw 'Unexpected group in func^group(x). expected func^number_or_group(x)'
+      return ['func ^ (num|arg)', func, assertIndependentNode(node)]
+    },
+    'func ^ (num|arg)'(node, func, numarg) {
+      if (node == null) throw 'Unexpect end of input after func^ex. expected arguments'
+      if (node === ' ') return ['func ^ (num|arg)', func, numarg]
+      if (typeof node !== 'object') throw 'Wrap function args with paren'
+      const funcCall = { op: func, args: node.type === 'args' ? node.value : [node.value] }
+      mults.push({ op: '^', args: [funcCall, numarg] })
+      return ['default']
+    },
+    'func group'(node, func, args) {
+      if (node == null) {
+        mults.push({ op: func, args })
+        return ['default']
+      }
+      if (node === ' ') return ['func group', func, args]
+      if (node === '^') return ['func group ^', func, args]
+      const funcCall = { op: func, args }
+      if (node === '!') {
+        mults.push({ op: 'fact', args: [funcCall]})
+        return ['default']
+      } else {
+        mults.push(funcCall)
+        return this.default(node)
+      }
+    },
+    'func group ^'(node, func, args) {
+      if (node == null) throw 'Unexpect end of input after ^'
+      if (node === ' ') return ['func group ^', func, args]
+      const funcCall = { op: func, args }
+      mults.push({ op: '^', args: [funcCall, unwrapNode(node)]})
+      return ['default']
     }
   }
-  if (pow != null) throw 'Error at ^'
-  if (mults.length === 0) throw `Unexpected Empty Block`
+  let state: ParseState = ['default']
+  for (const node of [...values, null]) {
+    const [mode, ...args] = state as [keyof Consumer, ...any[]]
+    state = (consumer[mode] as (...args: any[]) => ParseState)(node, ...args)
+  }
   return mults.reduce((a, b) => ({ op: '*', args: [a, b] }))
 }
 function splitByOp(group: TokenParenGroup, index: number, functionNames: Set<string>): ASTNode {
-  if (index === oplist.length) return buildFuncMultPow(group, functionNames)
+  if (index === oplist.length) return buildFuncMultPowBang(group, functionNames)
   const ops = oplist[index]
   let current: TokenParenGroup = []
   const groups: TokenParenGroup[] = [current]
@@ -231,15 +315,13 @@ function splitByOp(group: TokenParenGroup, index: number, functionNames: Set<str
     const rgroup = groups[i + 1]
     const right = rgroup.length === 0 ? null : splitByOp(rgroup, index + 1, functionNames)
     if (right == null) {
-      if (op === ' ') return
       throw `No Right Hand Side: ${op}`
     } 
     if (left == null) {
-      if (op === '-') ast = { op: '-@', args: [right] }
-      else if (op === ' ') ast = right
-      else throw `No Left Hand Side: ${op}`
+      if (op !== '-') throw `No Left Hand Side: ${op}`
+      ast = { op: '-@', args: [right] }
     } else {
-      ast = { op: op === ' ' ? '*' : op, args: [left, right] } as ASTNode
+      ast = { op, args: [left, right] }
     }
   })
   if (ast == null) throw 'Unexpected Empty Group'
