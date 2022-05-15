@@ -40,7 +40,7 @@ exports.predefinedFunctionNames = new Set([
 ]);
 var comparers = new Set(['<', '=', '>', '<=', '>=', '≤', '≥']);
 var comparerAlias = { '≤': '<=', '≥': '>=' };
-var operators = new Set(['+', '-', '*', '/', '^', '**']);
+var operators = new Set(['+', '-', '*', '/', '^', '**', '!']);
 var alias = {
     '**': '^', '√': 'sqrt',
     'arcsin': 'asin', 'arccos': 'acos', 'arctan': 'atan',
@@ -210,8 +210,35 @@ function buildRootAST(group, functionNames) {
         return [{ op: '-', args: [left, right] }, compareMode];
     }
 }
-var oplist = [new Set(['+', '-']), new Set(['*', '/', ' '])];
-function buildFuncMultPow(group, functionNames) {
+var oplist = [new Set(['+', '-']), new Set(['*', '/'])];
+function assertIndependentNode(node, functionNames) {
+    if (typeof node === 'string') {
+        if (node === '!' || node === '^')
+            throw 'Unexpected operator. Wrap with paren.';
+        if (functionNames && functionNames.has(node))
+            throw 'Unexpect function. Wrap with paren.';
+    }
+    return node;
+}
+function isIndependentNode(node, functionNames) {
+    if (typeof node === 'string') {
+        if (node === ' ' || node === '!' || node === '^')
+            return false;
+        if (functionNames && functionNames.has(node))
+            return false;
+    }
+    return true;
+}
+function unwrapNode(node, functionNames) {
+    if (typeof node === 'object') {
+        if (node.type === 'args')
+            throw 'Unexpect function argument';
+        return node.value;
+    }
+    return assertIndependentNode(node, functionNames);
+}
+function buildFuncMultPowBang(group, functionNames) {
+    var e_3, _a;
     var values = group.map(function (g) {
         if (typeof g !== 'object')
             return g;
@@ -219,79 +246,136 @@ function buildFuncMultPow(group, functionNames) {
         return Array.isArray(astOrArg) ? { type: 'args', value: astOrArg } : { type: 'paren', value: astOrArg };
     });
     var mults = [];
-    var concatable = false;
-    var pow;
-    for (var index = values.length - 1; index >= 0; index--) {
-        var v = values[index];
-        if (typeof v === 'object') {
-            var prev = index > 0 && values[index - 1];
-            var isPrevFunc = typeof prev === 'string' && functionNames.has(prev);
-            if (v.type === 'args') {
-                if (!isPrevFunc)
-                    throw 'Function Required';
-                var fcall = { op: prev, args: v.value };
-                if (pow != null) {
-                    mults.unshift({ op: '^', args: [fcall, pow] });
-                    pow = undefined;
-                }
-                else {
-                    mults.unshift(fcall);
-                }
-                index--;
+    var consumer = {
+        'default': function (node) {
+            if (node == null)
+                return ['default'];
+            if (node === ' ')
+                return ['default'];
+            if (typeof node === 'string' && functionNames.has(node)) {
+                return ['func', node];
+            }
+            return ['(group|num|arg)', unwrapNode(node)];
+        },
+        '(group|num|arg)': function (node, value) {
+            if (node == null) {
+                mults.push(value);
+                return ['default'];
+            }
+            if (node === ' ')
+                return ['(group|num|arg)', value];
+            if (node === '^')
+                return ['(group|num|arg) ^', value];
+            if (node === '!') {
+                mults.push({ op: 'fact', args: [value] });
+                return ['default'];
+            }
+            mults.push(value);
+            return this.default(node);
+        },
+        '(group|num|arg) ^': function (node, value) {
+            if (node == null)
+                throw 'Unexpect end of input after ^';
+            if (node === ' ')
+                return ['(group|num|arg) ^', value];
+            mults.push({ op: '^', args: [value, unwrapNode(node, functionNames)] });
+            return ['default'];
+        },
+        'func': function (node, name) {
+            if (node == null)
+                throw 'Unexpect end of input after function';
+            if (node === ' ')
+                return ['func', name];
+            if (node === '^')
+                return ['func ^', name];
+            if (typeof node === 'object') {
+                return ['func group', name, node.type === 'args' ? node.value : [node.value]];
             }
             else {
-                if (pow != null && !isPrevFunc) {
-                    mults.unshift({ op: '^', args: [v.value, pow] });
-                    pow = undefined;
-                }
-                else {
-                    mults.unshift(v.value);
-                }
+                return ['func numargs', name, assertIndependentNode(node, functionNames)];
             }
-            concatable = false;
-        }
-        else if (v === '^') {
-            if (mults[0] == null || pow != null)
-                throw "Error after ^";
-            pow = mults.shift();
-            concatable = false;
-        }
-        else if (typeof v === 'string' && functionNames.has(v)) {
-            if (mults[0] == null)
-                throw "Function Arg Required: " + v;
-            if (pow != null) {
-                mults[0] = { op: '^', args: [{ op: v, args: [mults[0]] }, pow] };
-                pow = undefined;
+        },
+        'func numargs': function (node, func, numargs) {
+            if (node == null) {
+                mults.push({ op: func, args: [numargs] });
+                return ['default'];
+            }
+            if (typeof node !== 'object' && isIndependentNode(node, functionNames)) {
+                return ['func numargs', func, { op: '*', args: [numargs, node] }];
+            }
+            mults.push({ op: func, args: [numargs] });
+            return this.default(node);
+        },
+        'func ^': function (node, func) {
+            if (node == null)
+                throw 'Unexpect end of input after ^';
+            if (node === ' ')
+                return ['func ^', func];
+            if (typeof node === 'object')
+                throw 'Unexpected group in func^group(x). expected func^number_or_group(x)';
+            return ['func ^ (num|arg)', func, assertIndependentNode(node)];
+        },
+        'func ^ (num|arg)': function (node, func, numarg) {
+            if (node == null)
+                throw 'Unexpect end of input after func^ex. expected arguments';
+            if (node === ' ')
+                return ['func ^ (num|arg)', func, numarg];
+            if (typeof node !== 'object')
+                throw 'Wrap function args with paren';
+            var funcCall = { op: func, args: node.type === 'args' ? node.value : [node.value] };
+            mults.push({ op: '^', args: [funcCall, numarg] });
+            return ['default'];
+        },
+        'func group': function (node, func, args) {
+            if (node == null) {
+                mults.push({ op: func, args: args });
+                return ['default'];
+            }
+            if (node === ' ')
+                return ['func group', func, args];
+            if (node === '^')
+                return ['func group ^', func, args];
+            var funcCall = { op: func, args: args };
+            if (node === '!') {
+                mults.push({ op: 'fact', args: [funcCall] });
+                return ['default'];
             }
             else {
-                mults[0] = { op: v, args: [mults[0]] };
+                mults.push(funcCall);
+                return this.default(node);
             }
-            concatable = false;
+        },
+        'func group ^': function (node, func, args) {
+            if (node == null)
+                throw 'Unexpect end of input after ^';
+            if (node === ' ')
+                return ['func group ^', func, args];
+            var funcCall = { op: func, args: args };
+            mults.push({ op: '^', args: [funcCall, unwrapNode(node)] });
+            return ['default'];
         }
-        else {
-            if (pow != null) {
-                mults.unshift({ op: '^', args: [v, pow] });
-                pow = undefined;
-            }
-            else if (concatable) {
-                mults[0] = { op: '*', args: [v, mults[0]] };
-            }
-            else {
-                mults.unshift(v);
-            }
-            concatable = true;
+    };
+    var state = ['default'];
+    try {
+        for (var _b = __values(__spreadArray(__spreadArray([], __read(values)), [null])), _c = _b.next(); !_c.done; _c = _b.next()) {
+            var node = _c.value;
+            var _d = __read(state), mode = _d[0], args = _d.slice(1);
+            state = consumer[mode].apply(consumer, __spreadArray([node], __read(args)));
         }
     }
-    if (pow != null)
-        throw 'Error at ^';
-    if (mults.length === 0)
-        throw "Unexpected Empty Block";
+    catch (e_3_1) { e_3 = { error: e_3_1 }; }
+    finally {
+        try {
+            if (_c && !_c.done && (_a = _b.return)) _a.call(_b);
+        }
+        finally { if (e_3) throw e_3.error; }
+    }
     return mults.reduce(function (a, b) { return ({ op: '*', args: [a, b] }); });
 }
 function splitByOp(group, index, functionNames) {
-    var e_3, _a;
+    var e_4, _a;
     if (index === oplist.length)
-        return buildFuncMultPow(group, functionNames);
+        return buildFuncMultPowBang(group, functionNames);
     var ops = oplist[index];
     var current = [];
     var groups = [current];
@@ -308,12 +392,12 @@ function splitByOp(group, index, functionNames) {
             }
         }
     }
-    catch (e_3_1) { e_3 = { error: e_3_1 }; }
+    catch (e_4_1) { e_4 = { error: e_4_1 }; }
     finally {
         try {
             if (group_1_1 && !group_1_1.done && (_a = group_1.return)) _a.call(group_1);
         }
-        finally { if (e_3) throw e_3.error; }
+        finally { if (e_4) throw e_4.error; }
     }
     var first = groups[0];
     var ast = first.length === 0 ? null : splitByOp(first, index + 1, functionNames);
@@ -322,20 +406,15 @@ function splitByOp(group, index, functionNames) {
         var rgroup = groups[i + 1];
         var right = rgroup.length === 0 ? null : splitByOp(rgroup, index + 1, functionNames);
         if (right == null) {
-            if (op === ' ')
-                return;
             throw "No Right Hand Side: " + op;
         }
         if (left == null) {
-            if (op === '-')
-                ast = { op: '-@', args: [right] };
-            else if (op === ' ')
-                ast = right;
-            else
+            if (op !== '-')
                 throw "No Left Hand Side: " + op;
+            ast = { op: '-@', args: [right] };
         }
         else {
-            ast = { op: op === ' ' ? '*' : op, args: [left, right] };
+            ast = { op: op, args: [left, right] };
         }
     });
     if (ast == null)
@@ -343,7 +422,7 @@ function splitByOp(group, index, functionNames) {
     return ast;
 }
 function buildAST(group, functionNames) {
-    var e_4, _a;
+    var e_5, _a;
     var current = [];
     var out = [current];
     try {
@@ -355,12 +434,12 @@ function buildAST(group, functionNames) {
                 current.push(item);
         }
     }
-    catch (e_4_1) { e_4 = { error: e_4_1 }; }
+    catch (e_5_1) { e_5 = { error: e_5_1 }; }
     finally {
         try {
             if (group_2_1 && !group_2_1.done && (_a = group_2.return)) _a.call(group_2);
         }
-        finally { if (e_4) throw e_4.error; }
+        finally { if (e_5) throw e_5.error; }
     }
     var astNodes = out.map(function (g) { return splitByOp(g, 0, functionNames); });
     if (astNodes.length === 1)
