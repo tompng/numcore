@@ -1,7 +1,5 @@
 export function texToPlain(s: string) {
-  s = s.replaceAll(/\\operatorname\{[a-zA-Z0-9]+\}/g, a => a.substring(14, a.length - 1))
-  const block = parse(s)
-  return convert(block)
+  return convert(parse(s))
 }
 
 type Block = (ParenGroup | AbsGroup | Block | string)[]
@@ -25,9 +23,16 @@ const commandAlias: Record<string, string> = {
   'gt': '>',
   'ge': '≥',
   'le': '≤',
-  'lt': '<'
+  'lt': '<',
+  'pi': 'π'
 }
-
+const functionCommands = new Set([
+  'sqrt', 'log', 'exp',
+  'sin', 'cos', 'tan',
+  'arcsin', 'arccos', 'arctan',
+  'sinh', 'cosh', 'tanh',
+  'csc', 'cosec', 'sec', 'cot',
+])
 function parse(s: string): Block {
   let index = 0
   const chars = [...s]
@@ -130,9 +135,19 @@ function convert(block: Block): string {
   while (index < elements.length) {
     const s = elements[index++]
     if (s === 'frac') {
-      output.push(`((${elements[index++]})/(${elements[index++]}))`)
+      const numerator = elements[index++]
+      const denominator = elements[index++]
+      if (!numerator || !denominator) throw 'Empty "\\frac{}{}"'
+      output.push(`((${numerator})/(${denominator}))`)
+    } else if (s === 'operatorname') {
+      const el = elements[index++]
+      const name = el?.match(/\((.+)\)/)?.[1] ?? el
+      if (!name) throw 'Empty "\\operatorname{}"'
+      output.push(' ', name, ' ')
+    } else if (functionCommands.has(s)) {
+      output.push(' ', s, ' ')
     } else {
-      output.push(s)
+      throw `Undefined command "\\${s}"`
     }
   }
   return output.join('')
