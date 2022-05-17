@@ -31,7 +31,9 @@ var commandAlias = {
     'ge': '≥',
     'le': '≤',
     'lt': '<',
-    'pi': 'π'
+    'pi': 'π',
+    'theta': 'θ',
+    'phi': 'φ'
 };
 var functionCommands = new Set([
     'sqrt', 'log', 'exp',

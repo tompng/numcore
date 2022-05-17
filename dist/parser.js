@@ -45,8 +45,7 @@ var alias = {
     '**': '^', '√': 'sqrt',
     'arcsin': 'asin', 'arccos': 'acos', 'arctan': 'atan',
     'arctanh': 'atanh', 'arccosh': 'acosh', 'arcsinh': 'asinh',
-    'π': 'pi', 'PI': 'pi', 'E': 'e',
-    'th': 'theta', 'θ': 'theta', 'φ': 'phi',
+    'π': 'pi', 'th': 'theta', 'θ': 'theta', 'φ': 'phi',
     'sgn': 'sign', 'signum': 'sign', 'factorial': 'fact',
 };
 var tokenSet = new Set(__spreadArray(__spreadArray(__spreadArray(__spreadArray(__spreadArray([], __read(exports.predefinedFunctionNames)), __read(Object.keys(alias))), __read(operators)), __read(comparers)), [',', ' ']));

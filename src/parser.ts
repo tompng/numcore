@@ -12,8 +12,7 @@ const alias: Record<string, string | undefined> = {
   '**': '^', '√': 'sqrt',
   'arcsin': 'asin', 'arccos': 'acos', 'arctan': 'atan',
   'arctanh': 'atanh', 'arccosh': 'acosh', 'arcsinh': 'asinh',
-  'π': 'pi', 'PI': 'pi', 'E': 'e',
-  'th': 'theta', 'θ': 'theta', 'φ': 'phi',
+  'π': 'pi', 'th': 'theta', 'θ': 'theta', 'φ': 'phi',
   'sgn': 'sign', 'signum': 'sign', 'factorial': 'fact',
 }
 const tokenSet = new Set([...predefinedFunctionNames, ...Object.keys(alias), ...operators, ...comparers, ',', ' '])

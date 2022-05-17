@@ -24,7 +24,9 @@ const commandAlias: Record<string, string> = {
   'ge': '≥',
   'le': '≤',
   'lt': '<',
-  'pi': 'π'
+  'pi': 'π',
+  'theta': 'θ',
+  'phi': 'φ'
 }
 const functionCommands = new Set([
   'sqrt', 'log', 'exp',
