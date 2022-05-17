@@ -1,7 +1,7 @@
 import type { ASTNode } from './ast'
 import type { CompareMode } from './util'
 export const predefinedFunctionNames = new Set([
-  'log', 'exp', 'sqrt', 'pow', 'hypot', 'sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'sinh', 'cosh', 'tanh', 'asinh', 'acosh', 'atanh', 'atan2', '√', 'abs', 'min', 'max',
+  'log', 'exp', 'sqrt', 'pow', 'hypot', 'sin', 'cos', 'asin', 'acos', 'atan', 'sinh', 'cosh', 'tanh', 'asinh', 'acosh', 'atanh', 'atan2', '√', 'abs', 'min', 'max',
   'arcsin', 'arccos', 'arctan', 'arctanh', 'arccosh', 'arcsinh',
   'floor', 'ceil', 'round', 'sgn', 'sign', 'signum', 'fact', 'factorial',
 ])

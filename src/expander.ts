@@ -265,17 +265,6 @@ const cos: Expander = (args, namer) => {
   return sincos(a, 'cos', namer)
 }
 
-// TODO: use Math.tan, not div(sin,cos)
-const tan: Expander = (args, namer) => {
-  assertArgNum('tan', args, 1)
-  const [a] = args
-  if (typeof a === 'number') return [Math.tan(a), '']
-  const [cvar, ccode] = cos([a], namer)
-  const [svar, scode] = sin([a], namer)
-  const [tvar, tcode] = div([svar, cvar], namer)
-  return [tvar, [ccode, scode, tcode].join(';')]
-}
-
 const hypot: Expander = (args, namer) => {
   if (args.length !== 2 && args.length !== 3) raiseArgNumError('hypot')
   const nums = args.filter(a => typeof a === 'number') as number[]
@@ -433,7 +422,6 @@ export const expanders = {
   log,
   sin,
   cos,
-  tan,
   sinh,
   cosh,
   tanh,
