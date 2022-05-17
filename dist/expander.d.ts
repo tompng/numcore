@@ -15,7 +15,6 @@ export declare const expanders: {
     log: Expander;
     sin: Expander;
     cos: Expander;
-    tan: Expander;
     sinh: Expander;
     cosh: Expander;
     tanh: Expander;

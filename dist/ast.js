@@ -116,7 +116,6 @@ function evalOperatorArgs(op, args) {
             case 'sqrt': return Math.sqrt(a);
             case 'sin': return Math.sin(a);
             case 'cos': return Math.cos(a);
-            case 'tan': return Math.tan(a);
             case 'sinh': return Math.sinh(a);
             case 'cosh': return Math.cosh(a);
             case 'tanh': return Math.tanh(a);
