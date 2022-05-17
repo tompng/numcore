@@ -85,7 +85,7 @@ function parse(s: string): Block {
           throw `Unsupported paren "${k}"`
         }
       } else {
-        current.children.push(commandAlias[cmd] ?? cmd)
+        current.children.push(commandAlias[cmd] ?? '\\' + cmd)
       }
     } else if (c === '(' || c === ')' || c === '|') {
       if (c === '|') {
@@ -135,21 +135,26 @@ function convert(block: Block): string {
   index = 0
   const output: string[] = []
   while (index < elements.length) {
-    const s = elements[index++]
-    if (s === 'frac') {
+    const el = elements[index++]
+    if (el[0] !== '\\') {
+      output.push(el)
+      continue
+    }
+    const command = el.substring(1)
+    if (command === 'frac') {
       const numerator = elements[index++]
       const denominator = elements[index++]
       if (!numerator || !denominator) throw 'Empty "\\frac{}{}"'
       output.push(`((${numerator})/(${denominator}))`)
-    } else if (s === 'operatorname') {
+    } else if (command === 'operatorname') {
       const el = elements[index++]
       const name = el?.match(/\((.+)\)/)?.[1] ?? el
       if (!name) throw 'Empty "\\operatorname{}"'
       output.push(' ', name, ' ')
-    } else if (functionCommands.has(s)) {
-      output.push(' ', s, ' ')
+    } else if (functionCommands.has(command)) {
+      output.push(' ', command, ' ')
     } else {
-      throw `Undefined command "\\${s}"`
+      throw `Undefined command "\\${command}"`
     }
   }
   return output.join('')

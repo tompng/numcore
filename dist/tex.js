@@ -102,7 +102,7 @@ function parse(s) {
                 }
             }
             else {
-                current.children.push((_a = commandAlias[cmd]) !== null && _a !== void 0 ? _a : cmd);
+                current.children.push((_a = commandAlias[cmd]) !== null && _a !== void 0 ? _a : '\\' + cmd);
             }
         }
         else if (c === '(' || c === ')' || c === '|') {
@@ -165,26 +165,31 @@ function convert(block) {
     index = 0;
     var output = [];
     while (index < elements.length) {
-        var s = elements[index++];
-        if (s === 'frac') {
+        var el = elements[index++];
+        if (el[0] !== '\\') {
+            output.push(el);
+            continue;
+        }
+        var command = el.substring(1);
+        if (command === 'frac') {
             var numerator = elements[index++];
             var denominator = elements[index++];
             if (!numerator || !denominator)
                 throw 'Empty "\\frac{}{}"';
             output.push("((" + numerator + ")/(" + denominator + "))");
         }
-        else if (s === 'operatorname') {
-            var el = elements[index++];
-            var name = (_b = (_a = el === null || el === void 0 ? void 0 : el.match(/\((.+)\)/)) === null || _a === void 0 ? void 0 : _a[1]) !== null && _b !== void 0 ? _b : el;
+        else if (command === 'operatorname') {
+            var el_1 = elements[index++];
+            var name = (_b = (_a = el_1 === null || el_1 === void 0 ? void 0 : el_1.match(/\((.+)\)/)) === null || _a === void 0 ? void 0 : _a[1]) !== null && _b !== void 0 ? _b : el_1;
             if (!name)
                 throw 'Empty "\\operatorname{}"';
             output.push(' ', name, ' ');
         }
-        else if (functionCommands.has(s)) {
-            output.push(' ', s, ' ');
+        else if (functionCommands.has(command)) {
+            output.push(' ', command, ' ');
         }
         else {
-            throw "Undefined command \"\\" + s + "\"";
+            throw "Undefined command \"\\" + command + "\"";
         }
     }
     return output.join('');
