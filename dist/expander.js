@@ -307,17 +307,6 @@ var cos = function (args, namer) {
         return [Math.cos(a), ''];
     return sincos(a, 'cos', namer);
 };
-// TODO: use Math.tan, not div(sin,cos)
-var tan = function (args, namer) {
-    assertArgNum('tan', args, 1);
-    var _a = __read(args, 1), a = _a[0];
-    if (typeof a === 'number')
-        return [Math.tan(a), ''];
-    var _b = __read(cos([a], namer), 2), cvar = _b[0], ccode = _b[1];
-    var _c = __read(sin([a], namer), 2), svar = _c[0], scode = _c[1];
-    var _d = __read(div([svar, cvar], namer), 2), tvar = _d[0], tcode = _d[1];
-    return [tvar, [ccode, scode, tcode].join(';')];
-};
 var hypot = function (args, namer) {
     if (args.length !== 2 && args.length !== 3)
         raiseArgNumError('hypot');
@@ -475,7 +464,6 @@ exports.expanders = {
     log: log,
     sin: sin,
     cos: cos,
-    tan: tan,
     sinh: sinh,
     cosh: cosh,
     tanh: tanh,

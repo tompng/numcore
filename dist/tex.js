@@ -23,17 +23,23 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.texToPlain = void 0;
 function texToPlain(s) {
-    s = s.replaceAll(/\\operatorname\{[a-zA-Z0-9]+\}/g, function (a) { return a.substring(14, a.length - 1); });
-    var block = parse(s);
-    return convert(block);
+    return convert(parse(s));
 }
 exports.texToPlain = texToPlain;
 var commandAlias = {
     'gt': '>',
     'ge': '≥',
     'le': '≤',
-    'lt': '<'
+    'lt': '<',
+    'pi': 'π'
 };
+var functionCommands = new Set([
+    'sqrt', 'log', 'exp',
+    'sin', 'cos', 'tan',
+    'arcsin', 'arccos', 'arctan',
+    'sinh', 'cosh', 'tanh',
+    'csc', 'cosec', 'sec', 'cot',
+]);
 function parse(s) {
     var _a;
     var index = 0;
@@ -123,6 +129,7 @@ function parse(s) {
     return stack[0].children;
 }
 function convert(block) {
+    var _a, _b;
     var elements = [];
     var index = 0;
     while (index < block.length) {
@@ -158,10 +165,24 @@ function convert(block) {
     while (index < elements.length) {
         var s = elements[index++];
         if (s === 'frac') {
-            output.push("((" + elements[index++] + ")/(" + elements[index++] + "))");
+            var numerator = elements[index++];
+            var denominator = elements[index++];
+            if (!numerator || !denominator)
+                throw 'Empty "\\frac{}{}"';
+            output.push("((" + numerator + ")/(" + denominator + "))");
+        }
+        else if (s === 'operatorname') {
+            var el = elements[index++];
+            var name = (_b = (_a = el === null || el === void 0 ? void 0 : el.match(/\((.+)\)/)) === null || _a === void 0 ? void 0 : _a[1]) !== null && _b !== void 0 ? _b : el;
+            if (!name)
+                throw 'Empty "\\operatorname{}"';
+            output.push(' ', name, ' ');
+        }
+        else if (functionCommands.has(s)) {
+            output.push(' ', s, ' ');
         }
         else {
-            output.push(s);
+            throw "Undefined command \"\\" + s + "\"";
         }
     }
     return output.join('');

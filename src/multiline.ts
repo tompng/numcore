@@ -350,7 +350,12 @@ export function astToRangeFunctionCode(uniqAST: UniqASTNode, args: string[], opt
 const defaultPresets: Presets = {
   pi: Math.PI,
   e: Math.E,
-  mod: [['x', 'y'], 'x-floor(x/y)*y']
+  mod: [['x', 'y'], 'x-floor(x/y)*y'],
+  tan: [['x'], 'sin(x)/cos(x)'],
+  cot: [['x'], 'cos(x)/sin(x)'],
+  sec: [['x'], '1/cos(x)'],
+  csc: [['x'], '1/sin(x)'],
+  cosec: [['x'], 'csc(x)'],
 }
 
 export const presets2D: Presets = {
