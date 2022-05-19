@@ -12,7 +12,7 @@ const gammascale = 1124000727777607680000 / eval('const x=23;' + gammacode)
 const fact22overCode = `x => { x+=1; return ${gammacode} * ${gammascale}}`
 const factorialMain = `
   x => {
-    if (x <= -1) {
+    if (x < 0) {
       if (Math.round(x) === x) return NaN;
       return x < -40 ? factNHigh(x) : factNLow(x);
     } else {

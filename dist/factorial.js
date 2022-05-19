@@ -26,7 +26,7 @@ var factNHigh = 'x => { const n = -Math.floor(x); x += n; return ffact01(x) / x 
 var gammacode = "Math.exp(" + Math.log(2 * Math.PI) / 2 + "+(x-0.5)*Math.log(x)-x+(1/12-(1/360-(1/1260-(1/1680-1/1188/x/x)/x/x)/x/x)/x/x)/x)";
 var gammascale = 1124000727777607680000 / eval('const x=23;' + gammacode);
 var fact22overCode = "x => { x+=1; return " + gammacode + " * " + gammascale + "}";
-var factorialMain = "\n  x => {\n    if (x <= -1) {\n      if (Math.round(x) === x) return NaN;\n      return x < -40 ? factNHigh(x) : factNLow(x);\n    } else {\n      return x < 13 ? factPLow(x) : factPHigh(x);\n    }\n  }\n";
+var factorialMain = "\n  x => {\n    if (x < 0) {\n      if (Math.round(x) === x) return NaN;\n      return x < -40 ? factNHigh(x) : factNLow(x);\n    } else {\n      return x < 13 ? factPLow(x) : factPHigh(x);\n    }\n  }\n";
 exports.factorialCode = "\nconst fact22over = " + fact22overCode + ";\nconst fact01 = x => " + fact01 + ";\nconst ffact01 = x => { const xx = x * (1 - x); return " + ffact01 + "; };\nconst factPLow = " + factPLow + ";\nconst factPHigh = " + factPHigh + ";\nconst factNLow = " + factNLow + ";\nconst factNHigh = " + factNHigh + ";\nconst factorial = " + factorialMain + ";\n";
 exports.factorial = eval(exports.factorialCode + "; factorial");
 var positiveStationaryPoint = 0.46163211383311686;
