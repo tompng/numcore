@@ -6,6 +6,10 @@ console.log(JSON.stringify(parse('x+y+z', new Set(['x','y','z']))))
 
 const examples: [string, string][] = [
   [
+    'x・y×z÷w≤1',
+    'x*y*z/w<=1'
+  ],
+  [
     '- a+b+c + d -e',
     '((((-a)+b)+c)+d)-e'
   ],
@@ -19,7 +23,7 @@ const examples: [string, string][] = [
   ],
   [
     '2a(1+b)cd e3f*gh',
-    '(2*a*(1+b)*c*d*e*3*f)*(g*h)'
+    '(2*a)*(1+b)*(c*d)*(e*3*f)*(g*h)'
   ],
   [
     'sinxsiny',
@@ -27,20 +31,24 @@ const examples: [string, string][] = [
   ],
   [
     'ab^2c3d',
-    'a*(b^2)*c*3*d'
+    '(a*(b^2))*(c*3*d)'
   ],
   [
     'xysin2xcdsin5y',
-    'x*y*sin(2xcd)*sin(5y)'
+    '(x*y)*sin(2xcd)*sin(5y)'
   ],
   [
     'ab!c!de12!sin(x)!(a+b)(c+d)!e ! exp (x) !',
-    'a*(b!)*(c!)*d*e*(12!)*((sin(x))!)*(a+b)*((c+d)!)*(e!)*((exp(x))!)'
+    '(a*(b!))*(c!)*(d*e*(12!))*((sin(x))!)*(a+b)*((c+d)!)*(e!)*((exp(x))!)'
   ],
   [
     'sinab c^d(e+f)^(g+h)sin(ij)^k',
     'sin(ab)*(c^d)*((e+f)^(g+h))*((sin(ij))^k)'
   ],
+  [
+    'a/bc d + a/e(f+g) + a/sinxsiny + a/xsiny',
+    'a/(b*c)*d + (a/e)*(f+g) + (a/sinx)*siny + (a/x)*siny'
+  ]
 ]
 
 function red(s: string) { return `\x1B[31m${s}\x1B[m`}

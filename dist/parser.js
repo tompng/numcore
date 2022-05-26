@@ -40,9 +40,9 @@ exports.predefinedFunctionNames = new Set([
 ]);
 var comparers = new Set(['<', '=', '>', '<=', '>=', '≤', '≥']);
 var comparerAlias = { '≤': '<=', '≥': '>=' };
-var operators = new Set(['+', '-', '*', '/', '^', '**', '!']);
+var operators = new Set(['+', '-', '*', '/', '^', '**', '!', '・', '×', '÷']);
 var alias = {
-    '**': '^', '√': 'sqrt',
+    '・': '*', '×': '*', '÷': '/', '**': '^', '√': 'sqrt',
     'arcsin': 'asin', 'arccos': 'acos', 'arctan': 'atan',
     'arctanh': 'atanh', 'arccosh': 'acosh', 'arcsinh': 'asinh',
     'π': 'pi', 'th': 'theta', 'θ': 'theta', 'φ': 'phi',
@@ -215,10 +215,11 @@ function assertIndependentNode(node, functionNames) {
         if (node === '!' || node === '^')
             throw 'Unexpected operator. Wrap with paren.';
         if (functionNames && functionNames.has(node))
-            throw 'Unexpect function. Wrap with paren.';
+            throw 'Unexpected function. Wrap with paren.';
     }
     return node;
 }
+var inverseExistingFunctions = new Set(['sin', 'cos', 'tan', 'sinh', 'cosh', 'tanh']);
 function isIndependentNode(node, functionNames) {
     if (typeof node === 'string') {
         if (node === ' ' || node === '!' || node === '^')
@@ -231,7 +232,7 @@ function isIndependentNode(node, functionNames) {
 function unwrapNode(node, functionNames) {
     if (typeof node === 'object') {
         if (node.type === 'args')
-            throw 'Unexpect function argument';
+            throw 'Unexpected function argument';
         return node.value;
     }
     return assertIndependentNode(node, functionNames);
@@ -244,113 +245,156 @@ function buildFuncMultPowBang(group, functionNames) {
         var astOrArg = buildAST(g, functionNames);
         return Array.isArray(astOrArg) ? { type: 'args', value: astOrArg } : { type: 'paren', value: astOrArg };
     });
-    var mults = [];
+    function mult(nodes) { return nodes.reduce(function (a, b) { return ({ op: '*', args: [a, b] }); }); }
+    function splitLast(item) {
+        return [item.slice(0, item.length - 1), item[item.length - 1]];
+    }
+    function isFunction(node) {
+        return typeof node === 'string' && functionNames.has(node);
+    }
+    var multGroups = [];
     var consumer = {
         'default': function (node) {
             if (node == null)
                 return ['default'];
             if (node === ' ')
                 return ['default'];
-            if (typeof node === 'string' && functionNames.has(node)) {
+            if (typeof node === 'string' && isFunction(node)) {
                 return ['func', node];
             }
-            return ['(group|num|arg)', unwrapNode(node)];
+            if (typeof node === 'object') {
+                return ['group', unwrapNode(node, functionNames)];
+            }
+            return ['numvars', [unwrapNode(node, functionNames)]];
         },
-        '(group|num|arg)': function (node, value) {
-            if (node == null) {
-                mults.push(value);
-                return ['default'];
+        'numvars': function (node, value) {
+            if (node == null || isFunction(node) || typeof node === 'object') {
+                multGroups.push(mult(value));
+                return this.default(node);
             }
             if (node === ' ')
-                return ['(group|num|arg)', value];
+                return ['numvars ', value];
             if (node === '^')
-                return ['(group|num|arg) ^', value];
+                return ['numvars ^', value];
             if (node === '!') {
-                mults.push({ op: 'fact', args: [value] });
+                var _a = __read(splitLast(value), 2), other = _a[0], last = _a[1];
+                multGroups.push(mult(__spreadArray(__spreadArray([], __read(other)), [{ op: 'fact', args: [last] }])));
                 return ['default'];
             }
-            mults.push(value);
+            return ['numvars', __spreadArray(__spreadArray([], __read(value)), [unwrapNode(node, functionNames)])];
+        },
+        'numvars ': function (node, value) {
+            if (node === ' ' || node === '^' || node === '!')
+                return this['numvars'](node, value);
+            this['numvars'](null, value);
             return this.default(node);
         },
-        '(group|num|arg) ^': function (node, value) {
-            if (node == null)
-                throw 'Unexpect end of input after ^';
+        'group': function (node, value) {
+            if (node == null) {
+                multGroups.push(value);
+                return ['default'];
+            }
             if (node === ' ')
-                return ['(group|num|arg) ^', value];
-            mults.push({ op: '^', args: [value, unwrapNode(node, functionNames)] });
+                return ['group', value];
+            if (node === '^')
+                return ['group ^', value];
+            if (node === '!') {
+                multGroups.push({ op: 'fact', args: [value] });
+                return ['default'];
+            }
+            multGroups.push(value);
+            return this.default(node);
+        },
+        'numvars ^': function (node, value) {
+            if (node == null)
+                throw 'Unexpected end of input after ^';
+            if (node === ' ')
+                return ['numvars ^', value];
+            var _a = __read(splitLast(value), 2), other = _a[0], last = _a[1];
+            multGroups.push(mult(__spreadArray(__spreadArray([], __read(other)), [{ op: '^', args: [last, unwrapNode(node, functionNames)] }])));
+            return ['default'];
+        },
+        'group ^': function (node, value) {
+            if (node == null)
+                throw 'Unexpected end of input after ^';
+            if (node === ' ')
+                return ['group ^', value];
+            multGroups.push({ op: '^', args: [value, unwrapNode(node, functionNames)] });
             return ['default'];
         },
         'func': function (node, name) {
             if (node == null)
-                throw 'Unexpect end of input after function';
+                throw 'Unexpected end of input after function';
             if (node === ' ')
                 return ['func', name];
             if (node === '^')
                 return ['func ^', name];
             if (typeof node === 'object') {
-                return ['func group', name, node.type === 'args' ? node.value : [node.value]];
+                return ['func args', name, node.type === 'args' ? node.value : [node.value]];
             }
             else {
-                return ['func numargs', name, assertIndependentNode(node, functionNames)];
+                return ['func numvars', name, assertIndependentNode(node, functionNames)];
             }
         },
-        'func numargs': function (node, func, numargs) {
+        'func numvars': function (node, func, numvars) {
             if (node == null) {
-                mults.push({ op: func, args: [numargs] });
+                multGroups.push({ op: func, args: [numvars] });
                 return ['default'];
             }
             if (typeof node !== 'object' && isIndependentNode(node, functionNames)) {
-                return ['func numargs', func, { op: '*', args: [numargs, node] }];
+                return ['func numvars', func, { op: '*', args: [numvars, node] }];
             }
-            mults.push({ op: func, args: [numargs] });
+            multGroups.push({ op: func, args: [numvars] });
             return this.default(node);
         },
         'func ^': function (node, func) {
             if (node == null)
-                throw 'Unexpect end of input after ^';
+                throw 'Unexpected end of input after ^';
             if (node === ' ')
                 return ['func ^', func];
-            if (typeof node === 'object')
-                throw 'Unexpected group in func^group(x). expected func^number_or_group(x)';
-            return ['func ^ (num|arg)', func, assertIndependentNode(node)];
+            var ex = unwrapNode(node, functionNames);
+            if (inverseExistingFunctions.has(func) && (ex === -1 || (typeof ex === 'object' && ex.op === '-@' && ex.args[0] === 1))) {
+                throw "Ambiguous func^(-1)(x). Use 1/" + func + "(x), " + func + "(x)^(-1) or arc" + func + "(x)";
+            }
+            return ['func ^ ex', func, ex];
         },
-        'func ^ (num|arg)': function (node, func, numarg) {
+        'func ^ ex': function (node, func, ex) {
             if (node == null)
-                throw 'Unexpect end of input after func^ex. expected arguments';
+                throw 'Unexpected end of input after func^ex. expected arguments';
             if (node === ' ')
-                return ['func ^ (num|arg)', func, numarg];
+                return ['func ^ ex', func, ex];
             if (typeof node !== 'object')
                 throw 'Wrap function args with paren';
             var funcCall = { op: func, args: node.type === 'args' ? node.value : [node.value] };
-            mults.push({ op: '^', args: [funcCall, numarg] });
-            return ['default'];
+            multGroups.push({ op: '^', args: [funcCall, ex] });
+            return this.default(node);
         },
-        'func group': function (node, func, args) {
+        'func args': function (node, func, args) {
             if (node == null) {
-                mults.push({ op: func, args: args });
+                multGroups.push({ op: func, args: args });
                 return ['default'];
             }
             if (node === ' ')
-                return ['func group', func, args];
+                return ['func args', func, args];
             if (node === '^')
-                return ['func group ^', func, args];
+                return ['func args ^', func, args];
             var funcCall = { op: func, args: args };
             if (node === '!') {
-                mults.push({ op: 'fact', args: [funcCall] });
+                multGroups.push({ op: 'fact', args: [funcCall] });
                 return ['default'];
             }
             else {
-                mults.push(funcCall);
+                multGroups.push(funcCall);
                 return this.default(node);
             }
         },
-        'func group ^': function (node, func, args) {
+        'func args ^': function (node, func, args) {
             if (node == null)
-                throw 'Unexpect end of input after ^';
+                throw 'Unexpected end of input after ^';
             if (node === ' ')
-                return ['func group ^', func, args];
+                return ['func args ^', func, args];
             var funcCall = { op: func, args: args };
-            mults.push({ op: '^', args: [funcCall, unwrapNode(node)] });
+            multGroups.push({ op: '^', args: [funcCall, unwrapNode(node, functionNames)] });
             return ['default'];
         }
     };
@@ -369,64 +413,73 @@ function buildFuncMultPowBang(group, functionNames) {
         }
         finally { if (e_3) throw e_3.error; }
     }
-    return mults.reduce(function (a, b) { return ({ op: '*', args: [a, b] }); });
+    return multGroups;
 }
-function splitByOp(group, index, functionNames) {
+function splitByOp(items, op) {
     var e_4, _a;
-    if (index === oplist.length)
-        return buildFuncMultPowBang(group, functionNames);
-    var ops = oplist[index];
-    var current = [];
-    var groups = [current];
-    var operators = [];
+    var output = [];
     try {
-        for (var group_1 = __values(group), group_1_1 = group_1.next(); !group_1_1.done; group_1_1 = group_1.next()) {
-            var item = group_1_1.value;
-            if (typeof item === 'string' && ops.has(item)) {
-                operators.push(item);
-                groups.push(current = []);
+        for (var items_1 = __values(items), items_1_1 = items_1.next(); !items_1_1.done; items_1_1 = items_1.next()) {
+            var item = items_1_1.value;
+            if (op.includes(item)) {
+                output.push([item, []]);
             }
             else {
-                current.push(item);
+                if (output.length === 0)
+                    output.push([null, []]);
+                output[output.length - 1][1].push(item);
             }
         }
     }
     catch (e_4_1) { e_4 = { error: e_4_1 }; }
     finally {
         try {
-            if (group_1_1 && !group_1_1.done && (_a = group_1.return)) _a.call(group_1);
+            if (items_1_1 && !items_1_1.done && (_a = items_1.return)) _a.call(items_1);
         }
         finally { if (e_4) throw e_4.error; }
     }
-    var first = groups[0];
-    var ast = first.length === 0 ? null : splitByOp(first, index + 1, functionNames);
-    operators.forEach(function (op, i) {
-        var left = ast;
-        var rgroup = groups[i + 1];
-        var right = rgroup.length === 0 ? null : splitByOp(rgroup, index + 1, functionNames);
-        if (right == null) {
+    return output;
+}
+function splitMultDiv(group, functionNames) {
+    var result = splitByOp(group, ['*', '/']).reduce(function (ast, _a) {
+        var _b = __read(_a, 2), op = _b[0], group = _b[1];
+        if (group.length === 0)
             throw "No Right Hand Side: " + op;
-        }
-        if (left == null) {
-            if (op !== '-')
-                throw "No Left Hand Side: " + op;
-            ast = { op: '-@', args: [right] };
-        }
-        else {
-            ast = { op: op, args: [left, right] };
-        }
-    });
-    if (ast == null)
+        if (ast == null && op != null)
+            throw "No Left Hand Side: " + op;
+        var nodes = buildFuncMultPowBang(group, functionNames);
+        if (op === '/')
+            ast = { op: '/', args: [ast, nodes.shift()] };
+        var rhs = nodes.length ? nodes.reduce(function (a, b) { return ({ op: '*', args: [a, b] }); }) : null;
+        if (ast && rhs)
+            return { op: '*', args: [ast, rhs] };
+        return ast !== null && ast !== void 0 ? ast : rhs;
+    }, null);
+    if (result == null)
         throw 'Unexpected Empty Group';
-    return ast;
+    return result;
+}
+function splitPlusMinus(group, functionNames) {
+    var result = splitByOp(group, ['+', '-']).reduce(function (ast, _a) {
+        var _b = __read(_a, 2), op = _b[0], group = _b[1];
+        if (group.length === 0)
+            throw "No Right Hand Side: " + op;
+        var rhs = splitMultDiv(group, functionNames);
+        if (ast === null)
+            return op === '-' ? { op: '-@', args: [rhs] } : rhs;
+        return { op: op === '-' ? '-' : '+', args: [ast, rhs] };
+    }, null);
+    if (result == null)
+        throw 'Unexpected Empty Group';
+    return result;
 }
 function buildAST(group, functionNames) {
     var e_5, _a;
     var current = [];
     var out = [current];
     try {
-        for (var group_2 = __values(group), group_2_1 = group_2.next(); !group_2_1.done; group_2_1 = group_2.next()) {
-            var item = group_2_1.value;
+        for (var group_1 = __values(group), group_1_1 = group_1.next(); !group_1_1.done; group_1_1 = group_1.next()) {
+            var item = group_1_1.value;
             if (item == ',')
                 out.push(current = []);
             else
@@ -436,11 +489,11 @@ function buildAST(group, functionNames) {
     catch (e_5_1) { e_5 = { error: e_5_1 }; }
     finally {
         try {
-            if (group_2_1 && !group_2_1.done && (_a = group_2.return)) _a.call(group_2);
+            if (group_1_1 && !group_1_1.done && (_a = group_1.return)) _a.call(group_1);
         }
         finally { if (e_5) throw e_5.error; }
     }
-    var astNodes = out.map(function (g) { return splitByOp(g, 0, functionNames); });
+    var astNodes = out.map(function (g) { return splitPlusMinus(g, functionNames); });
     if (astNodes.length === 1)
         return astNodes[0];
     return astNodes;
