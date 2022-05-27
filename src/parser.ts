@@ -7,9 +7,9 @@ export const predefinedFunctionNames = new Set([
 ])
 const comparers = new Set(['<', '=', '>', '<=', '>=', '≤', '≥'])
 const comparerAlias: Record<string, string> = { '≤': '<=', '≥': '>=' }
-const operators = new Set(['+', '-', '*', '/', '^', '**', '!'])
+const operators = new Set(['+', '-', '*', '/', '^', '**', '!', '・', '×', '÷'])
 const alias: Record<string, string | undefined> = {
-  '**': '^', '√': 'sqrt',
+  '・': '*', '×': '*', '÷': '/', '**': '^', '√': 'sqrt',
   'arcsin': 'asin', 'arccos': 'acos', 'arctan': 'atan',
   'arctanh': 'atanh', 'arccosh': 'acosh', 'arcsinh': 'asinh',
   'π': 'pi', 'th': 'theta', 'θ': 'theta', 'φ': 'phi',
@@ -146,23 +146,28 @@ function buildRootAST(group: TokenParenGroup, functionNames: Set<string>): [ASTN
 type ArgGroup = ASTNode[]
 const oplist = [new Set(['+', '-']), new Set(['*', '/'])]
 
-// (group|num|arg) !
-// (group|num|arg) ^ (group|num|arg)
-// func ^ num (group|args)
-// func ^ arg group
-// func (numargs|group)
-// func group !
-// func group ^ (group|num|arg)
+// numvars !
+// numvars ^ (group|num|var)
+// group !
+// group ^ (group|num|var)
+// func ^ (group|num|var) (group|args)
+// func numvars
+// func (group|args) !
+// func (group|args) ^ (group|num|var)
+
 type ParseStateData = {
   'default': []
-  '(group|num|arg)': [ASTNode]
-  '(group|num|arg) ^': [ASTNode]
+  'numvars': [ASTNode[]]
+  'numvars ': [ASTNode[]]
+  'numvars ^': [ASTNode[]]
+  'group': [ASTNode]
+  'group ^': [ASTNode]
   'func' : [string]
   'func ^' : [string]
-  'func ^ (num|arg)' : [string, number | string]
-  'func numargs' : [string, ASTNode]
-  'func group': [string, ASTNode[]]
-  'func group ^': [string, ASTNode[]]
+  'func ^ ex' : [string, ASTNode]
+  'func numvars' : [string, ASTNode]
+  'func args': [string, ASTNode[]]
+  'func args ^': [string, ASTNode[]]
 }
 type ParseState = { [key in keyof ParseStateData]: [key, ...ParseStateData[key]] }[keyof ParseStateData]
 type Args = { type: 'args'; value: ArgGroup }
@@ -172,10 +177,13 @@ type Consumer = { [key in keyof ParseStateData]: (node: Node | null, ...args: Pa
 function assertIndependentNode<T>(node: T, functionNames?: Set<string>): T {
   if (typeof node === 'string') {
     if (node === '!' || node === '^') throw 'Unexpected operator. Wrap with paren.'
-    if (functionNames && functionNames.has(node)) throw 'Unexpect function. Wrap with paren.'
+    if (functionNames && functionNames.has(node)) throw 'Unexpected function. Wrap with paren.'
   }
   return node
 }
+
+const inverseExistingFunctions = new Set(['sin', 'cos', 'tan', 'sinh', 'cosh', 'tanh'])
+
 function isIndependentNode(node: Node, functionNames?: Set<string>) {
   if (typeof node === 'string') {
     if (node === ' ' || node === '!' || node === '^') return false
@@ -183,106 +191,145 @@ function isIndependentNode(node: Node, functionNames?: Set<string>) {
   }
   return true
 }
-function unwrapNode(node: Node, functionNames?: Set<string>): ASTNode {
+function unwrapNode(node: Node, functionNames: Set<string>): ASTNode {
   if (typeof node === 'object') {
-    if (node.type === 'args') throw 'Unexpect function argument'
+    if (node.type === 'args') throw 'Unexpected function argument'
     return node.value
   }
   return assertIndependentNode(node, functionNames)
 }
 
-function buildFuncMultPowBang(group: TokenParenGroup, functionNames: Set<string>): ASTNode {
+function buildFuncMultPowBang(group: TokenParenGroup, functionNames: Set<string>): ASTNode[] {
   const values: Node[] = group.map(g => {
     if (typeof g !== 'object') return g
     const astOrArg = buildAST(g, functionNames)
     return Array.isArray(astOrArg) ? { type: 'args' as const, value: astOrArg } : { type: 'paren' as const, value: astOrArg }
   })
-  const mults: ASTNode[] = []
+  function mult(nodes: ASTNode[]): ASTNode { return nodes.reduce((a, b) => ({ op: '*', args: [a, b] })) }
+  function splitLast<T>(item: T[]) {
+    return [item.slice(0, item.length - 1), item[item.length - 1]] as const
+  }
+  function isFunction(node: Node) {
+    return typeof node === 'string' && functionNames.has(node)
+  }
+  const multGroups: ASTNode[] = []
   const consumer: Consumer = {
     'default'(node) {
       if (node == null) return ['default']
       if (node === ' ') return ['default']
-      if (typeof node === 'string' && functionNames.has(node)) {
+      if (typeof node === 'string' && isFunction(node)) {
         return ['func', node]
       }
-      return ['(group|num|arg)', unwrapNode(node)]
+      if (typeof node === 'object') {
+        return ['group', unwrapNode(node, functionNames)]
+      }
+      return ['numvars', [unwrapNode(node, functionNames)]]
     },
-    '(group|num|arg)'(node, value): ParseState {
-      if (node == null) {
-        mults.push(value)
-        return ['default']
+    'numvars'(node, value) {
+      if (node == null || isFunction(node) || typeof node === 'object') {
+        multGroups.push(mult(value))
+        return this.default(node)
       }
-      if (node === ' ') return ['(group|num|arg)', value]
-      if (node === '^') return ['(group|num|arg) ^', value]
+      if (node === ' ') return ['numvars ', value]
+      if (node === '^') return ['numvars ^', value]
       if (node === '!') {
-        mults.push({ op: 'fact', args: [value] })
+        const [other, last] = splitLast(value)
+        multGroups.push(mult([...other, { op: 'fact', args: [last] }]))
         return ['default']
       }
-      mults.push(value)
+      return ['numvars', [...value, unwrapNode(node, functionNames)]]
+    },
+    'numvars '(node, value) {
+      if (node === ' ' || node === '^' || node === '!') return this['numvars'](node, value)
+      this['numvars'](null, value)
       return this.default(node)
     },
-    '(group|num|arg) ^'(node, value) {
-      if (node == null) throw 'Unexpect end of input after ^'
-      if (node === ' ') return ['(group|num|arg) ^', value]
-      mults.push({ op: '^', args: [value, unwrapNode(node, functionNames)]})
+    'group'(node, value) {
+      if (node == null) {
+        multGroups.push(value)
+        return ['default']
+      }
+      if (node === ' ') return ['group', value]
+      if (node === '^') return ['group ^', value]
+      if (node === '!') {
+        multGroups.push({ op: 'fact', args: [value] })
+        return ['default']
+      }
+      multGroups.push(value)
+      return this.default(node)
+    },
+    'numvars ^'(node, value) {
+      if (node == null) throw 'Unexpected end of input after ^'
+      if (node === ' ') return ['numvars ^', value]
+      const [other, last] = splitLast(value)
+      multGroups.push(mult([...other, { op: '^', args: [last, unwrapNode(node, functionNames)] }]))
+      return ['default']
+    },
+    'group ^'(node, value) {
+      if (node == null) throw 'Unexpected end of input after ^'
+      if (node === ' ') return ['group ^', value]
+      multGroups.push({ op: '^', args: [value, unwrapNode(node, functionNames)]})
       return ['default']
     },
     'func'(node, name) {
-      if (node == null) throw 'Unexpect end of input after function'
+      if (node == null) throw 'Unexpected end of input after function'
       if (node === ' ') return ['func', name]
       if (node === '^') return ['func ^', name]
       if (typeof node === 'object') {
-        return ['func group', name, node.type === 'args' ? node.value : [node.value]]
+        return ['func args', name, node.type === 'args' ? node.value : [node.value]]
       } else {
-        return ['func numargs', name, assertIndependentNode(node, functionNames)]
+        return ['func numvars', name, assertIndependentNode(node, functionNames)]
       }
     },
-    'func numargs'(node, func, numargs) {
+    'func numvars'(node, func, numvars) {
       if (node == null) {
-        mults.push({ op: func, args: [numargs] })
+        multGroups.push({ op: func, args: [numvars] })
         return ['default']
       }
       if (typeof node !== 'object' && isIndependentNode(node, functionNames)) {
-        return ['func numargs', func, { op: '*', args: [numargs, node] }]
+        return ['func numvars', func, { op: '*', args: [numvars, node] }]
       }
-      mults.push({ op: func, args: [numargs] })
+      multGroups.push({ op: func, args: [numvars] })
       return this.default(node)
     },
     'func ^'(node, func) {
-      if (node == null) throw 'Unexpect end of input after ^'
+      if (node == null) throw 'Unexpected end of input after ^'
       if (node === ' ') return ['func ^', func]
-      if (typeof node === 'object') throw 'Unexpected group in func^group(x). expected func^number_or_group(x)'
-      return ['func ^ (num|arg)', func, assertIndependentNode(node)]
+      const ex = unwrapNode(node, functionNames)
+      if (inverseExistingFunctions.has(func) && (ex === -1 || (typeof ex === 'object' && ex.op === '-@' && ex.args[0] === 1))) {
+        throw `Ambiguous func^(-1)(x). Use 1/${func}(x), ${func}(x)^(-1) or arc${func}(x)`
+      }
+      return ['func ^ ex', func, ex]
     },
-    'func ^ (num|arg)'(node, func, numarg) {
-      if (node == null) throw 'Unexpect end of input after func^ex. expected arguments'
-      if (node === ' ') return ['func ^ (num|arg)', func, numarg]
+    'func ^ ex'(node, func, ex) {
+      if (node == null) throw 'Unexpected end of input after func^ex. expected arguments'
+      if (node === ' ') return ['func ^ ex', func, ex]
       if (typeof node !== 'object') throw 'Wrap function args with paren'
       const funcCall = { op: func, args: node.type === 'args' ? node.value : [node.value] }
-      mults.push({ op: '^', args: [funcCall, numarg] })
-      return ['default']
+      multGroups.push({ op: '^', args: [funcCall, ex] })
+      return this.default(node)
     },
-    'func group'(node, func, args) {
+    'func args'(node, func, args) {
       if (node == null) {
-        mults.push({ op: func, args })
+        multGroups.push({ op: func, args })
         return ['default']
       }
-      if (node === ' ') return ['func group', func, args]
-      if (node === '^') return ['func group ^', func, args]
+      if (node === ' ') return ['func args', func, args]
+      if (node === '^') return ['func args ^', func, args]
       const funcCall = { op: func, args }
       if (node === '!') {
-        mults.push({ op: 'fact', args: [funcCall]})
+        multGroups.push({ op: 'fact', args: [funcCall]})
         return ['default']
       } else {
-        mults.push(funcCall)
+        multGroups.push(funcCall)
         return this.default(node)
       }
     },
-    'func group ^'(node, func, args) {
-      if (node == null) throw 'Unexpect end of input after ^'
-      if (node === ' ') return ['func group ^', func, args]
+    'func args ^'(node, func, args) {
+      if (node == null) throw 'Unexpected end of input after ^'
+      if (node === ' ') return ['func args ^', func, args]
       const funcCall = { op: func, args }
-      mults.push({ op: '^', args: [funcCall, unwrapNode(node)]})
+      multGroups.push({ op: '^', args: [funcCall, unwrapNode(node, functionNames)]})
       return ['default']
     }
   }
@@ -291,41 +338,46 @@ function buildFuncMultPowBang(group: TokenParenGroup, functionNames: Set<string>
     const [mode, ...args] = state as [keyof Consumer, ...any[]]
     state = (consumer[mode] as (...args: any[]) => ParseState)(node, ...args)
   }
-  return mults.reduce((a, b) => ({ op: '*', args: [a, b] }))
+  return multGroups
 }
-function splitByOp(group: TokenParenGroup, index: number, functionNames: Set<string>): ASTNode {
-  if (index === oplist.length) return buildFuncMultPowBang(group, functionNames)
-  const ops = oplist[index]
-  let current: TokenParenGroup = []
-  const groups: TokenParenGroup[] = [current]
-  const operators: string[] = []
-  for (let item of group) {
-    if (typeof item === 'string' && ops.has(item)) {
-      operators.push(item)
-      groups.push(current = [])
+
+function splitByOp<T extends string>(items: TokenParenGroup, op: T[]) {
+  const output: [T | null, TokenParenGroup][] = []
+  for (const item of items) {
+    if ((op as any[]).includes(item)) {
+      output.push([item as T, []])
     } else {
-      current.push(item)
+      if (output.length === 0) output.push([null, []])
+      output[output.length - 1][1].push(item)
     }
   }
-  const first = groups[0]
-  let ast = first.length === 0 ? null : splitByOp(first, index + 1, functionNames)
-  operators.forEach((op, i) => {
-    const left = ast
-    const rgroup = groups[i + 1]
-    const right = rgroup.length === 0 ? null : splitByOp(rgroup, index + 1, functionNames)
-    if (right == null) {
-      throw `No Right Hand Side: ${op}`
-    } 
-    if (left == null) {
-      if (op !== '-') throw `No Left Hand Side: ${op}`
-      ast = { op: '-@', args: [right] }
-    } else {
-      ast = { op, args: [left, right] }
-    }
-  })
-  if (ast == null) throw 'Unexpected Empty Group'
-  return ast
+  return output
 }
+
+function splitMultDiv(group: TokenParenGroup, functionNames: Set<string>): ASTNode {
+  const result = splitByOp(group, ['*', '/']).reduce((ast, [op, group]) => {
+    if (group.length === 0) throw `No Right Hand Side: ${op}`
+    if (ast == null && op != null) throw `No Left Hand Side: ${op}`
+    const nodes = buildFuncMultPowBang(group, functionNames)
+    if (op === '/') ast = { op: '/', args: [ast!, nodes.shift()!] }
+    const rhs = nodes.length ? nodes.reduce((a, b) => ({ op: '*', args: [a, b] })) : null
+    if (ast && rhs) return { op: '*', args: [ast, rhs] }
+    return ast ?? rhs
+  }, null as null | ASTNode)
+  if (result == null) throw 'Unexpected Empty Group'
+  return result
+}
+function splitPlusMinus(group: TokenParenGroup, functionNames: Set<string>): ASTNode {
+  const result = splitByOp(group, ['+', '-']).reduce((ast, [op, group]) => {
+    if (group.length === 0) throw `No Right Hand Side: ${op}`
+    const rhs = splitMultDiv(group, functionNames)
+    if (ast === null) return op === '-' ? { op: '-@', args: [rhs] } : rhs
+    return { op: op === '-' ? '-' : '+', args: [ast, rhs] }
+  }, null as null | ASTNode)
+  if (result == null) throw 'Unexpected Empty Group'
+  return result
+}
+
 function buildAST(group: TokenParenGroup, functionNames: Set<string>): ASTNode | ArgGroup {
   let current: TokenParenGroup = []
   const out = [current]
@@ -333,7 +385,7 @@ function buildAST(group: TokenParenGroup, functionNames: Set<string>): ASTNode |
     if (item == ',') out.push(current = [])
     else current.push(item)
   }
-  const astNodes = out.map(g => splitByOp(g, 0, functionNames))
+  const astNodes = out.map(g => splitPlusMinus(g, functionNames))
   if (astNodes.length === 1) return astNodes[0]
   return astNodes
 }
