@@ -22,18 +22,26 @@ type Group = ParenGroup | AbsGroup | BlockGroup
 const commandAlias: Record<string, string> = {
   'gt': '>',
   'ge': '≥',
+  'geq': '≥',
+  'geqq': '≥',
   'le': '≤',
+  'leq': '≤',
+  'leqq': '≤',
   'lt': '<',
   'pi': 'π',
   'theta': 'θ',
-  'phi': 'φ'
+  'phi': 'φ',
+  'cdot': '・',
+  'times': '×',
+  'div': '÷',
 }
 const functionCommands = new Set([
   'sqrt', 'log', 'exp',
   'sin', 'cos', 'tan',
   'arcsin', 'arccos', 'arctan',
   'sinh', 'cosh', 'tanh',
-  'csc', 'cosec', 'sec', 'cot',
+  'csc', 'sec', 'cot',
+  'min', 'max'
 ])
 function parse(s: string): Block {
   let index = 0

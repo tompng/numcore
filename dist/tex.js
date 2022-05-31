@@ -29,18 +29,26 @@ exports.texToPlain = texToPlain;
 var commandAlias = {
     'gt': '>',
     'ge': '≥',
+    'geq': '≥',
+    'geqq': '≥',
     'le': '≤',
+    'leq': '≤',
+    'leqq': '≤',
     'lt': '<',
     'pi': 'π',
     'theta': 'θ',
-    'phi': 'φ'
+    'phi': 'φ',
+    'cdot': '・',
+    'times': '×',
+    'div': '÷',
 };
 var functionCommands = new Set([
     'sqrt', 'log', 'exp',
     'sin', 'cos', 'tan',
     'arcsin', 'arccos', 'arctan',
     'sinh', 'cosh', 'tanh',
-    'csc', 'cosec', 'sec', 'cot',
+    'csc', 'sec', 'cot',
+    'min', 'max'
 ]);
 function parse(s) {
     var _a;
