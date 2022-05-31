@@ -361,7 +361,7 @@ function splitMultDiv(group: TokenParenGroup, functionNames: Set<string>): ASTNo
     const nodes = buildFuncMultPowBang(group, functionNames)
     if (op === '/') ast = { op: '/', args: [ast!, nodes.shift()!] }
     const rhs = nodes.length ? nodes.reduce((a, b) => ({ op: '*', args: [a, b] })) : null
-    if (ast && rhs) return { op: '*', args: [ast, rhs] }
+    if (ast != null && rhs != null) return { op: '*', args: [ast, rhs] }
     return ast ?? rhs
   }, null as null | ASTNode)
   if (result == null) throw 'Unexpected Empty Group'

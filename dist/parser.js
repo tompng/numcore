@@ -451,7 +451,7 @@ function splitMultDiv(group, functionNames) {
         if (op === '/')
             ast = { op: '/', args: [ast, nodes.shift()] };
         var rhs = nodes.length ? nodes.reduce(function (a, b) { return ({ op: '*', args: [a, b] }); }) : null;
-        if (ast && rhs)
+        if (ast != null && rhs != null)
             return { op: '*', args: [ast, rhs] };
         return ast !== null && ast !== void 0 ? ast : rhs;
     }, null);
