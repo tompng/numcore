@@ -179,19 +179,7 @@ function convert(block) {
             continue;
         }
         var command = el.substring(1);
-        if (command === 'log') {
-            if (elements[index] === '_') {
-                index++;
-                var sub = elements[index++];
-                if (!sub)
-                    throw 'Empty subscript after "log_"';
-                output.push(' ', 'logWithSubscript(', sub, ')');
-            }
-            else {
-                output.push(' ', 'log', ' ');
-            }
-        }
-        else if (command === 'frac') {
+        if (command === 'frac') {
             var numerator = elements[index++];
             var denominator = elements[index++];
             if (!numerator || !denominator)
@@ -206,7 +194,16 @@ function convert(block) {
             output.push(' ', name, ' ');
         }
         else if (functionCommands.has(command)) {
-            output.push(' ', command, ' ');
+            if (command === 'log' && elements[index] === '_') {
+                index++;
+                var sub = elements[index++];
+                if (!sub)
+                    throw "Empty subscript after \"" + command + "_\"";
+                output.push(' ', command + 'WithSubscript(', sub, ')');
+            }
+            else {
+                output.push(' ', command, ' ');
+            }
         }
         else {
             throw "Undefined command \"\\" + command + "\"";
