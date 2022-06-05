@@ -260,7 +260,9 @@ function buildFuncMultPowBang(group, functionNames) {
             if (node === ' ')
                 return ['default'];
             if (typeof node === 'string' && isFunction(node)) {
-                return ['func', node];
+                if (node.match(/WithSubscript$/))
+                    return ['subfunc', node];
+                return ['func', node, []];
             }
             if (typeof node === 'object') {
                 return ['group', unwrapNode(node, functionNames)];
@@ -322,52 +324,68 @@ function buildFuncMultPowBang(group, functionNames) {
             multGroups.push({ op: '^', args: [value, unwrapNode(node, functionNames)] });
             return ['default'];
         },
-        'func': function (node, name) {
+        'subfunc': function (node, name) {
+            if (node === ' ')
+                return ['subfunc', name];
+            if (node === '^')
+                throw "Unexpected \"^\" in subscript of \"" + name + "\"";
+            if (node == null)
+                throw "Unexpected end of input after subscript of \"" + name + "\"";
+            if (typeof node === 'object') {
+                if (node.type === 'args')
+                    throw "Unexpected comma in subscript of \"" + name + "\"";
+                return ['func', name, [node.value]];
+            }
+            else {
+                return ['func', name, [node]];
+            }
+        },
+        'func': function (node, name, decorators) {
             if (node == null)
                 throw 'Unexpected end of input after function';
             if (node === ' ')
-                return ['func', name];
+                return ['func', name, decorators];
             if (node === '^')
-                return ['func ^', name];
+                return ['func ^', name, decorators];
             if (typeof node === 'object') {
-                return ['func args', name, node.type === 'args' ? node.value : [node.value]];
+                return ['func args', name, node.type === 'args' ? __spreadArray(__spreadArray([], __read(decorators)), __read(node.value)) : __spreadArray(__spreadArray([], __read(decorators)), [node.value])];
             }
             else {
-                return ['func numvars', name, assertIndependentNode(node, functionNames)];
+                return ['func numvars', name, decorators, assertIndependentNode(node, functionNames)];
             }
         },
-        'func numvars': function (node, func, numvars) {
+        'func numvars': function (node, func, decorators, numvars) {
             if (node == null) {
-                multGroups.push({ op: func, args: [numvars] });
+                multGroups.push({ op: func, args: __spreadArray(__spreadArray([], __read(decorators)), [numvars]) });
                 return ['default'];
             }
             if (typeof node !== 'object' && isIndependentNode(node, functionNames)) {
-                return ['func numvars', func, { op: '*', args: [numvars, node] }];
+                return ['func numvars', func, decorators, { op: '*', args: [numvars, node] }];
             }
-            multGroups.push({ op: func, args: [numvars] });
+            multGroups.push({ op: func, args: __spreadArray(__spreadArray([], __read(decorators)), [numvars]) });
             return this.default(node);
         },
-        'func ^': function (node, func) {
+        'func ^': function (node, func, decorators) {
             if (node == null)
                 throw 'Unexpected end of input after ^';
             if (node === ' ')
-                return ['func ^', func];
+                return ['func ^', func, decorators];
             var ex = unwrapNode(node, functionNames);
             if (inverseExistingFunctions.has(func) && (ex === -1 || (typeof ex === 'object' && ex.op === '-@' && ex.args[0] === 1))) {
                 throw "Ambiguous func^(-1)(x). Use 1/" + func + "(x), " + func + "(x)^(-1) or arc" + func + "(x)";
             }
-            return ['func ^ ex', func, ex];
+            return ['func ^ ex', func, decorators, ex];
         },
-        'func ^ ex': function (node, func, ex) {
+        'func ^ ex': function (node, func, decorators, ex) {
             if (node == null)
                 throw 'Unexpected end of input after func^ex. expected arguments';
             if (node === ' ')
-                return ['func ^ ex', func, ex];
+                return ['func ^ ex', func, decorators, ex];
             if (typeof node !== 'object')
                 throw 'Wrap function args with paren';
-            var funcCall = { op: func, args: node.type === 'args' ? node.value : [node.value] };
+            var funcCall = { op: func, args: node.type === 'args' ? __spreadArray(__spreadArray([], __read(decorators)), __read(node.value)) : __spreadArray(__spreadArray([], __read(decorators)), [node.value]) };
             multGroups.push({ op: '^', args: [funcCall, ex] });
-            return this.default(node);
+            return ['default'];
         },
         'func args': function (node, func, args) {
             if (node == null) {

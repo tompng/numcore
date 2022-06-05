@@ -162,10 +162,11 @@ type ParseStateData = {
   'numvars ^': [ASTNode[]]
   'group': [ASTNode]
   'group ^': [ASTNode]
-  'func' : [string]
-  'func ^' : [string]
-  'func ^ ex' : [string, ASTNode]
-  'func numvars' : [string, ASTNode]
+  'subfunc': [string]
+  'func' : [string, ASTNode[]]
+  'func ^' : [string, ASTNode[]]
+  'func ^ ex' : [string, ASTNode[], ASTNode]
+  'func numvars' : [string, ASTNode[], ASTNode]
   'func args': [string, ASTNode[]]
   'func args ^': [string, ASTNode[]]
 }
@@ -218,7 +219,8 @@ function buildFuncMultPowBang(group: TokenParenGroup, functionNames: Set<string>
       if (node == null) return ['default']
       if (node === ' ') return ['default']
       if (typeof node === 'string' && isFunction(node)) {
-        return ['func', node]
+        if (node.match(/WithSubscript$/)) return ['subfunc', node]
+        return ['func', node, []]
       }
       if (typeof node === 'object') {
         return ['group', unwrapNode(node, functionNames)]
@@ -271,43 +273,54 @@ function buildFuncMultPowBang(group: TokenParenGroup, functionNames: Set<string>
       multGroups.push({ op: '^', args: [value, unwrapNode(node, functionNames)]})
       return ['default']
     },
-    'func'(node, name) {
-      if (node == null) throw 'Unexpected end of input after function'
-      if (node === ' ') return ['func', name]
-      if (node === '^') return ['func ^', name]
+    'subfunc'(node, name) {
+      if (node === ' ') return ['subfunc', name]
+      if (node === '^') throw `Unexpected "^" in subscript of "${name}"`
+      if (node == null) throw `Unexpected end of input after subscript of "${name}"`
       if (typeof node === 'object') {
-        return ['func args', name, node.type === 'args' ? node.value : [node.value]]
+        if (node.type === 'args') throw `Unexpected comma in subscript of "${name}"`
+        return ['func', name, [node.value]]
       } else {
-        return ['func numvars', name, assertIndependentNode(node, functionNames)]
+        return ['func', name, [node]]
       }
     },
-    'func numvars'(node, func, numvars) {
+    'func'(node, name, decorators) {
+      if (node == null) throw 'Unexpected end of input after function'
+      if (node === ' ') return ['func', name, decorators]
+      if (node === '^') return ['func ^', name, decorators]
+      if (typeof node === 'object') {
+        return ['func args', name, node.type === 'args' ? [...decorators, ...node.value] : [...decorators, node.value]]
+      } else {
+        return ['func numvars', name, decorators, assertIndependentNode(node, functionNames)]
+      }
+    },
+    'func numvars'(node, func, decorators, numvars) {
       if (node == null) {
-        multGroups.push({ op: func, args: [numvars] })
+        multGroups.push({ op: func, args: [...decorators, numvars] })
         return ['default']
       }
       if (typeof node !== 'object' && isIndependentNode(node, functionNames)) {
-        return ['func numvars', func, { op: '*', args: [numvars, node] }]
+        return ['func numvars', func, decorators, { op: '*', args: [numvars, node] }]
       }
-      multGroups.push({ op: func, args: [numvars] })
+      multGroups.push({ op: func, args: [...decorators, numvars] })
       return this.default(node)
     },
-    'func ^'(node, func) {
+    'func ^'(node, func, decorators) {
       if (node == null) throw 'Unexpected end of input after ^'
-      if (node === ' ') return ['func ^', func]
+      if (node === ' ') return ['func ^', func, decorators]
       const ex = unwrapNode(node, functionNames)
       if (inverseExistingFunctions.has(func) && (ex === -1 || (typeof ex === 'object' && ex.op === '-@' && ex.args[0] === 1))) {
         throw `Ambiguous func^(-1)(x). Use 1/${func}(x), ${func}(x)^(-1) or arc${func}(x)`
       }
-      return ['func ^ ex', func, ex]
+      return ['func ^ ex', func, decorators, ex]
     },
-    'func ^ ex'(node, func, ex) {
+    'func ^ ex'(node, func, decorators, ex) {
       if (node == null) throw 'Unexpected end of input after func^ex. expected arguments'
-      if (node === ' ') return ['func ^ ex', func, ex]
+      if (node === ' ') return ['func ^ ex', func, decorators, ex]
       if (typeof node !== 'object') throw 'Wrap function args with paren'
-      const funcCall = { op: func, args: node.type === 'args' ? node.value : [node.value] }
+      const funcCall = { op: func, args: node.type === 'args' ? [...decorators, ...node.value] : [...decorators, node.value] }
       multGroups.push({ op: '^', args: [funcCall, ex] })
-      return this.default(node)
+      return ['default']
     },
     'func args'(node, func, args) {
       if (node == null) {

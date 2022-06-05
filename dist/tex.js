@@ -179,7 +179,19 @@ function convert(block) {
             continue;
         }
         var command = el.substring(1);
-        if (command === 'frac') {
+        if (command === 'log') {
+            if (elements[index] === '_') {
+                index++;
+                var sub = elements[index++];
+                if (!sub)
+                    throw 'Empty subscript after "log_"';
+                output.push(' ', 'logWithSubscript(', sub, ')');
+            }
+            else {
+                output.push(' ', 'log', ' ');
+            }
+        }
+        else if (command === 'frac') {
             var numerator = elements[index++];
             var denominator = elements[index++];
             if (!numerator || !denominator)

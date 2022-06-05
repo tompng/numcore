@@ -352,6 +352,7 @@ const defaultPresets: Presets = {
   e: Math.E,
   mod: [['x', 'y'], 'x-floor(x/y)*y'],
   tan: [['x'], 'sin(x)/cos(x)'],
+  logWithSubscript: [['x', 'y'], 'log(y)/log(x)'],
   cot: [['x'], 'cos(x)/sin(x)'],
   sec: [['x'], '1/cos(x)'],
   csc: [['x'], '1/sin(x)'],
