@@ -48,7 +48,11 @@ const examples: [string, string][] = [
   [
     'a/bc d + a/e(f+g) + a/sinxsiny + a/xsiny',
     'a/(b*c)*d + (a/e)*(f+g) + (a/sinx)*siny + (a/x)*siny'
-  ]
+  ],
+  [
+    'sin^2(x)',
+    '(sinx)^2'
+  ],
 ]
 
 function red(s: string) { return `\x1B[31m${s}\x1B[m`}

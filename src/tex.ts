@@ -160,7 +160,14 @@ function convert(block: Block): string {
       if (!name) throw 'Empty "\\operatorname{}"'
       output.push(' ', name, ' ')
     } else if (functionCommands.has(command)) {
-      output.push(' ', command, ' ')
+      if (command === 'log' && elements[index] === '_') {
+        index++
+        const sub = elements[index++]
+        if (!sub) throw `Empty subscript after "${command}_"`
+        output.push(' ', command + 'WithSubscript(', sub, ')')
+      } else {
+        output.push(' ', command, ' ')
+      }
     } else {
       throw `Undefined command "\\${command}"`
     }
