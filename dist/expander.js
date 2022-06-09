@@ -35,14 +35,17 @@ function assertArgNum(name, args, n) {
         raiseArgNumError(name);
 }
 exports.assertArgNum = assertArgNum;
+function numToSafeString(n) {
+    return n < 0 ? "(" + n + ")" : n.toString();
+}
 var add = function (_a, namer) {
     var _b = __read(_a, 2), a = _b[0], b = _b[1];
     if (typeof a === 'number' && typeof b === 'number')
         return [a + b, ''];
     var minvar = namer();
     var maxvar = namer();
-    var mincode = "const " + minvar + "=" + (typeof a === 'number' ? a : a[0]) + "+" + (typeof b === 'number' ? b : b[0]);
-    var maxcode = "const " + maxvar + "=" + (typeof a === 'number' ? a : a[1]) + "+" + (typeof b === 'number' ? b : b[1]);
+    var mincode = "const " + minvar + "=" + (typeof a === 'number' ? a : a[0]) + "+" + (typeof b === 'number' ? numToSafeString(b) : b[0]);
+    var maxcode = "const " + maxvar + "=" + (typeof a === 'number' ? a : a[1]) + "+" + (typeof b === 'number' ? numToSafeString(b) : b[1]);
     return [[minvar, maxvar], mincode + ";" + maxcode];
 };
 var sub = function (_a, namer) {
@@ -51,8 +54,8 @@ var sub = function (_a, namer) {
         return [a - b, ''];
     var minvar = namer();
     var maxvar = namer();
-    var mincode = "const " + minvar + "=" + (typeof a === 'number' ? a : a[0]) + "-" + (typeof b === 'number' ? b : b[1]);
-    var maxcode = "const " + maxvar + "=" + (typeof a === 'number' ? a : a[1]) + "-" + (typeof b === 'number' ? b : b[0]);
+    var mincode = "const " + minvar + "=" + (typeof a === 'number' ? a : a[0]) + "-" + (typeof b === 'number' ? numToSafeString(b) : b[1]);
+    var maxcode = "const " + maxvar + "=" + (typeof a === 'number' ? a : a[1]) + "-" + (typeof b === 'number' ? numToSafeString(b) : b[0]);
     return [[minvar, maxvar], mincode + ";" + maxcode];
 };
 var minus = function (_a, namer) {

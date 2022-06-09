@@ -108,7 +108,7 @@ const funcAlias1: Record<string, string | undefined> = {
 }
 
 export function astToCode(ast: ASTNode, argNames: Set<string>): string {
-  if (typeof ast === 'number') return ast.toString()
+  if (typeof ast === 'number') return ast < 0 ? `(${ast})` : ast.toString()
   if (typeof ast === 'string') {
     if (argNames.has(ast)) return ast
     throw new Error(`Unknown constant or variable: ${ast}`)

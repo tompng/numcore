@@ -171,7 +171,7 @@ var funcAlias1 = {
 };
 function astToCode(ast, argNames) {
     if (typeof ast === 'number')
-        return ast.toString();
+        return ast < 0 ? "(" + ast + ")" : ast.toString();
     if (typeof ast === 'string') {
         if (argNames.has(ast))
             return ast;
