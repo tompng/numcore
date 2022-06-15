@@ -1,32 +1,11 @@
 "use strict";
-var __read = (this && this.__read) || function (o, n) {
-    var m = typeof Symbol === "function" && o[Symbol.iterator];
-    if (!m) return o;
-    var i = m.call(o), r, ar = [], e;
-    try {
-        while ((n === void 0 || n-- > 0) && !(r = i.next()).done) ar.push(r.value);
-    }
-    catch (error) { e = { error: error }; }
-    finally {
-        try {
-            if (r && !r.done && (m = i["return"])) m.call(i);
-        }
-        finally { if (e) throw e.error; }
-    }
-    return ar;
-};
-var __spreadArray = (this && this.__spreadArray) || function (to, from) {
-    for (var i = 0, il = from.length, j = to.length; i < il; i++, j++)
-        to[j] = from[i];
-    return to;
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.texToPlain = void 0;
 function texToPlain(s) {
     return convert(parse(s));
 }
 exports.texToPlain = texToPlain;
-var commandAlias = {
+const commandAlias = {
     'gt': '>',
     'ge': '≥',
     'geq': '≥',
@@ -42,7 +21,7 @@ var commandAlias = {
     'times': '×',
     'div': '÷',
 };
-var functionCommands = new Set([
+const functionCommands = new Set([
     'sqrt', 'log', 'exp',
     'sin', 'cos', 'tan',
     'arcsin', 'arccos', 'arctan',
@@ -52,12 +31,12 @@ var functionCommands = new Set([
 ]);
 function parse(s) {
     var _a;
-    var index = 0;
-    var chars = __spreadArray([], __read(s));
-    var current = { type: 'block', command: false, children: [] };
-    var stack = [current];
+    let index = 0;
+    const chars = [...s];
+    let current = { type: 'block', command: false, children: [] };
+    const stack = [current];
     function takeCommand() {
-        var cmd = '';
+        let cmd = '';
         while (index < chars.length && 'a' <= chars[index] && chars[index] <= 'z') {
             cmd += chars[index];
             index++;
@@ -65,18 +44,18 @@ function parse(s) {
         return cmd;
     }
     function open(type, command) {
-        var group = { type: type, command: command, children: [] };
+        const group = { type, command, children: [] };
         current.children.push(group.type === 'block' ? group.children : group);
         stack.push(current = group);
     }
     function close(type, command) {
-        var last = stack.pop();
+        const last = stack.pop();
         current = stack[stack.length - 1];
         if (last == null || current == null || last.type !== type || last.command !== command)
             throw 'Paren mismatch';
     }
     while (index < chars.length) {
-        var c = chars[index++];
+        const c = chars[index++];
         if (c === '{') {
             open('block', true);
         }
@@ -84,9 +63,9 @@ function parse(s) {
             close('block', true);
         }
         else if (c === '\\') {
-            var cmd = takeCommand();
+            const cmd = takeCommand();
             if (cmd === 'left' || cmd === 'mleft') {
-                var k = chars[index++];
+                const k = chars[index++];
                 if (k === '|') {
                     open('abs', true);
                 }
@@ -94,11 +73,11 @@ function parse(s) {
                     open('paren', true);
                 }
                 else {
-                    throw "Unsupported paren \"" + k + "\"";
+                    throw `Unsupported paren "${k}"`;
                 }
             }
             else if (cmd === 'right' || cmd === 'mright') {
-                var k = chars[index++];
+                const k = chars[index++];
                 if (k === '|') {
                     close('abs', true);
                 }
@@ -106,7 +85,7 @@ function parse(s) {
                     close('paren', true);
                 }
                 else {
-                    throw "Unsupported paren \"" + k + "\"";
+                    throw `Unsupported paren "${k}"`;
                 }
             }
             else {
@@ -115,7 +94,7 @@ function parse(s) {
         }
         else if (c === '(' || c === ')' || c === '|') {
             if (c === '|') {
-                var last = stack[stack.length - 1];
+                const last = stack[stack.length - 1];
                 if (last && last.type === 'abs' && !last.command) {
                     close('abs', false);
                 }
@@ -140,25 +119,25 @@ function parse(s) {
 }
 function convert(block) {
     var _a, _b;
-    var elements = [];
-    var index = 0;
+    const elements = [];
+    let index = 0;
     while (index < block.length) {
-        var node = block[index++];
+        const node = block[index++];
         if (Array.isArray(node)) {
-            elements.push("(" + convert(node) + ")");
+            elements.push(`(${convert(node)})`);
         }
         else if (typeof node === 'object') {
-            var s = convert(node.children);
+            let s = convert(node.children);
             if (node.type === 'abs')
-                elements.push("abs(" + s + ")");
+                elements.push(`abs(${s})`);
             else
-                elements.push("(" + s + ")");
+                elements.push(`(${s})`);
         }
         else if (node === '^') {
-            var next = block[index];
+            const next = block[index];
             elements.push('^');
             if (typeof next === 'string') {
-                elements.push("(" + next + ")");
+                elements.push(`(${next})`);
                 index++;
             }
         }
@@ -171,24 +150,24 @@ function convert(block) {
         }
     }
     index = 0;
-    var output = [];
+    const output = [];
     while (index < elements.length) {
-        var el = elements[index++];
+        const el = elements[index++];
         if (el[0] !== '\\') {
             output.push(el);
             continue;
         }
-        var command = el.substring(1);
+        const command = el.substring(1);
         if (command === 'frac') {
-            var numerator = elements[index++];
-            var denominator = elements[index++];
+            const numerator = elements[index++];
+            const denominator = elements[index++];
             if (!numerator || !denominator)
                 throw 'Empty "\\frac{}{}"';
-            output.push("((" + numerator + ")/(" + denominator + "))");
+            output.push(`((${numerator})/(${denominator}))`);
         }
         else if (command === 'operatorname') {
-            var el_1 = elements[index++];
-            var name = (_b = (_a = el_1 === null || el_1 === void 0 ? void 0 : el_1.match(/\((.+)\)/)) === null || _a === void 0 ? void 0 : _a[1]) !== null && _b !== void 0 ? _b : el_1;
+            const el = elements[index++];
+            const name = (_b = (_a = el === null || el === void 0 ? void 0 : el.match(/\((.+)\)/)) === null || _a === void 0 ? void 0 : _a[1]) !== null && _b !== void 0 ? _b : el;
             if (!name)
                 throw 'Empty "\\operatorname{}"';
             output.push(' ', name, ' ');
@@ -196,9 +175,9 @@ function convert(block) {
         else if (functionCommands.has(command)) {
             if (command === 'log' && elements[index] === '_') {
                 index++;
-                var sub = elements[index++];
+                const sub = elements[index++];
                 if (!sub)
-                    throw "Empty subscript after \"" + command + "_\"";
+                    throw `Empty subscript after "${command}_"`;
                 output.push(' ', command + 'WithSubscript(', sub, ')');
             }
             else {
@@ -206,7 +185,7 @@ function convert(block) {
             }
         }
         else {
-            throw "Undefined command \"\\" + command + "\"";
+            throw `Undefined command "\\${command}"`;
         }
     }
     return output.join('');

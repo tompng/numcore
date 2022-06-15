@@ -1,100 +1,44 @@
 "use strict";
-var __values = (this && this.__values) || function(o) {
-    var s = typeof Symbol === "function" && Symbol.iterator, m = s && o[s], i = 0;
-    if (m) return m.call(o);
-    if (o && typeof o.length === "number") return {
-        next: function () {
-            if (o && i >= o.length) o = void 0;
-            return { value: o && o[i++], done: !o };
-        }
-    };
-    throw new TypeError(s ? "Object is not iterable." : "Symbol.iterator is not defined.");
-};
-var __read = (this && this.__read) || function (o, n) {
-    var m = typeof Symbol === "function" && o[Symbol.iterator];
-    if (!m) return o;
-    var i = m.call(o), r, ar = [], e;
-    try {
-        while ((n === void 0 || n-- > 0) && !(r = i.next()).done) ar.push(r.value);
-    }
-    catch (error) { e = { error: error }; }
-    finally {
-        try {
-            if (r && !r.done && (m = i["return"])) m.call(i);
-        }
-        finally { if (e) throw e.error; }
-    }
-    return ar;
-};
-var __spreadArray = (this && this.__spreadArray) || function (to, from) {
-    for (var i = 0, il = from.length, j = to.length; i < il; i++, j++)
-        to[j] = from[i];
-    return to;
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.astToRangeVarNameCode = exports.astToCode = exports.preEvaluateAST = exports.extractFunctions = exports.extractVariables = void 0;
-var factorial_1 = require("./factorial");
+const factorial_1 = require("./factorial");
 function extractVariables(ast) {
-    var set = new Set();
+    const set = new Set();
     function extract(ast) {
-        var e_1, _a;
         if (typeof ast === 'number')
             return;
         if (typeof ast === 'string') {
             set.add(ast);
         }
         else {
-            try {
-                for (var _b = __values(ast.args), _c = _b.next(); !_c.done; _c = _b.next()) {
-                    var arg = _c.value;
-                    extract(arg);
-                }
-            }
-            catch (e_1_1) { e_1 = { error: e_1_1 }; }
-            finally {
-                try {
-                    if (_c && !_c.done && (_a = _b.return)) _a.call(_b);
-                }
-                finally { if (e_1) throw e_1.error; }
-            }
+            for (const arg of ast.args)
+                extract(arg);
         }
     }
     extract(ast);
-    return __spreadArray([], __read(set));
+    return [...set];
 }
 exports.extractVariables = extractVariables;
 function extractFunctions(ast, functions) {
-    var set = new Set();
+    const set = new Set();
     function extract(ast) {
-        var e_2, _a;
         if (typeof ast === 'number' || typeof ast === 'string')
             return;
         if (functions.has(ast.op))
             set.add(ast.op);
-        try {
-            for (var _b = __values(ast.args), _c = _b.next(); !_c.done; _c = _b.next()) {
-                var arg = _c.value;
-                extract(arg);
-            }
-        }
-        catch (e_2_1) { e_2 = { error: e_2_1 }; }
-        finally {
-            try {
-                if (_c && !_c.done && (_a = _b.return)) _a.call(_b);
-            }
-            finally { if (e_2) throw e_2.error; }
-        }
+        for (const arg of ast.args)
+            extract(arg);
     }
     extract(ast);
-    return __spreadArray([], __read(set));
+    return [...set];
 }
 exports.extractFunctions = extractFunctions;
 function isNumberArray(arr) {
-    return arr.every(function (arg) { return typeof arg === 'number'; });
+    return arr.every(arg => typeof arg === 'number');
 }
 function evalOperatorArgs(op, args) {
     if (args.length === 2) {
-        var _a = __read(args, 2), a = _a[0], b = _a[1];
+        const [a, b] = args;
         switch (op) {
             case '+': return a + b;
             case '-': return a - b;
@@ -108,7 +52,7 @@ function evalOperatorArgs(op, args) {
         }
     }
     else if (args.length === 1) {
-        var _b = __read(args, 1), a = _b[0];
+        const [a] = args;
         switch (op) {
             case '-@': return -a;
             case 'exp': return Math.exp(a);
@@ -135,23 +79,22 @@ function evalOperatorArgs(op, args) {
     }
     else if (args.length !== 0) {
         switch (op) {
-            case 'min': return Math.min.apply(Math, __spreadArray([], __read(args)));
-            case 'max': return Math.max.apply(Math, __spreadArray([], __read(args)));
-            case 'hypot': return Math.hypot.apply(Math, __spreadArray([], __read(args)));
+            case 'min': return Math.min(...args);
+            case 'max': return Math.max(...args);
+            case 'hypot': return Math.hypot(...args);
         }
     }
 }
-function preEvaluateAST(ast, uniq, astResult) {
-    if (astResult === void 0) { astResult = new Map(); }
+function preEvaluateAST(ast, uniq, astResult = new Map()) {
     function traverse(ast) {
         if (typeof ast !== 'object')
             return ast;
-        var result = astResult.get(ast);
+        let result = astResult.get(ast);
         if (result != null)
             return result;
-        var args = ast.args.map(traverse);
+        const args = ast.args.map(traverse);
         if (isNumberArray(args)) {
-            var v = evalOperatorArgs(ast.op, args);
+            const v = evalOperatorArgs(ast.op, args);
             if (v != null)
                 result = v;
         }
@@ -163,67 +106,56 @@ function preEvaluateAST(ast, uniq, astResult) {
     return traverse(ast);
 }
 exports.preEvaluateAST = preEvaluateAST;
-var funcAlias2 = {
+const funcAlias2 = {
     atan: 'Math.atan2'
 };
-var funcAlias1 = {
+const funcAlias1 = {
     fact: '/*REQUIRE(factorial)*/factorial'
 };
 function astToCode(ast, argNames) {
     if (typeof ast === 'number')
-        return ast < 0 ? "(" + ast + ")" : ast.toString();
+        return ast < 0 ? `(${ast})` : ast.toString();
     if (typeof ast === 'string') {
         if (argNames.has(ast))
             return ast;
-        throw new Error("Unknown constant or variable: " + ast);
+        throw new Error(`Unknown constant or variable: ${ast}`);
     }
-    var args = ast.args.map(function (arg) { return astToCode(arg, argNames); });
+    const args = ast.args.map(arg => astToCode(arg, argNames));
     if (args.length === 2) {
-        var _a = __read(args, 2), a = _a[0], b = _a[1];
+        const [a, b] = args;
         switch (ast.op) {
-            case '^': return "(" + a + "**" + b + ")";
+            case '^': return `(${a}**${b})`;
             case '+':
             case '-':
             case '*':
             case '/':
-                return "(" + a + ast.op + b + ")";
+                return `(${a}${ast.op}${b})`;
         }
-        var alias = funcAlias2[ast.op];
+        const alias = funcAlias2[ast.op];
         if (alias)
-            alias + "(" + a + "," + b + ")";
-        return "Math." + ast.op + "(" + a + "," + b + ")";
+            `${alias}(${a},${b})`;
+        return `Math.${ast.op}(${a},${b})`;
     }
     else if (args.length === 1) {
-        var _b = __read(args, 1), a = _b[0];
+        const [a] = args;
         if (ast.op === '-@')
-            return "(-" + a + ")";
-        var alias = funcAlias1[ast.op];
+            return `(-${a})`;
+        const alias = funcAlias1[ast.op];
         if (alias)
-            return alias + "(" + a + ")";
-        return "Math." + ast.op + "(" + a + ")";
+            return `${alias}(${a})`;
+        return `Math.${ast.op}(${a})`;
     }
     else {
-        return "Math." + ast.op + "(" + args.join(',') + ")";
+        return `Math.${ast.op}(${args.join(',')})`;
     }
 }
 exports.astToCode = astToCode;
 function astToRangeVarNameCode(ast, args, expanders, namer) {
-    var e_3, _a;
-    var variables = extractVariables(ast);
-    var validVars = new Set(Object.keys(args));
-    try {
-        for (var variables_1 = __values(variables), variables_1_1 = variables_1.next(); !variables_1_1.done; variables_1_1 = variables_1.next()) {
-            var varname = variables_1_1.value;
-            if (!validVars.has(varname))
-                throw "Unknown variable " + varname;
-        }
-    }
-    catch (e_3_1) { e_3 = { error: e_3_1 }; }
-    finally {
-        try {
-            if (variables_1_1 && !variables_1_1.done && (_a = variables_1.return)) _a.call(variables_1);
-        }
-        finally { if (e_3) throw e_3.error; }
+    const variables = extractVariables(ast);
+    const validVars = new Set(Object.keys(args));
+    for (const varname of variables) {
+        if (!validVars.has(varname))
+            throw `Unknown variable ${varname}`;
     }
     return astToRangeVarNameCodeRec(ast, args, expanders, namer);
 }
@@ -232,17 +164,17 @@ function astToRangeVarNameCodeRec(ast, argMap, expanders, namer) {
     if (typeof ast === 'number')
         return [ast, ''];
     if (typeof ast === 'string') {
-        var varname = argMap[ast];
+        const varname = argMap[ast];
         if (!varname)
-            throw new Error("Unknown constant or variable: " + ast);
+            throw new Error(`Unknown constant or variable: ${ast}`);
         return [varname, ''];
     }
-    var argCodes = ast.args.map(function (arg) { return astToRangeVarNameCodeRec(arg, argMap, expanders, namer); });
-    var codes = argCodes.map(function (a) { return a[1]; });
-    var args = argCodes.map(function (a) { return a[0]; });
-    var expander = expanders[ast.op];
+    const argCodes = ast.args.map(arg => astToRangeVarNameCodeRec(arg, argMap, expanders, namer));
+    const codes = argCodes.map(a => a[1]);
+    const args = argCodes.map(a => a[0]);
+    const expander = expanders[ast.op];
     if (!expander)
-        throw new Error("Expander undefined for: " + ast.op);
-    var _a = __read(expander(args, namer), 2), c = _a[0], ccode = _a[1];
+        throw new Error(`Expander undefined for: ${ast.op}`);
+    const [c, ccode] = expander(args, namer);
     return [c, codes.join(';') + ';' + ccode];
 }

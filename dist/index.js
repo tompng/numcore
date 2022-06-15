@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.parse = exports.astToValueFunctionCode = exports.astToRangeFunctionCode = exports.presets3D = exports.presets2D = exports.RangeResults = exports.texToPlain = exports.epsilon = exports.extractVariables = void 0;
-var multiline_1 = require("./multiline");
+const multiline_1 = require("./multiline");
 var ast_1 = require("./ast");
 Object.defineProperty(exports, "extractVariables", { enumerable: true, get: function () { return ast_1.extractVariables; } });
 var multiline_2 = require("./multiline");
