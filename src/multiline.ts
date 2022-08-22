@@ -77,9 +77,9 @@ export function parseMultiple(formulaTexts: string[], argNames: string[], preset
     let definition: FuncDef
     try {
       const [ast, mode] = parse(body, new Set([...varNames, ...args]), funcNames)
-      if (mode != null) throw `invalid compare operator`
+      if (mode != null) throw `Unexpected compare operator`
       const duplicateArgs = duplicates(args)
-      if (duplicateArgs.length !== 0) throw `duplicate argument name: ${JSON.stringify(duplicateArgs)}`
+      if (duplicateArgs.length !== 0) throw `Duplicated argument name: ${JSON.stringify(duplicateArgs)}`
       const variables = extractVariables(ast).filter(n => !args.includes(n))
       const deps = [...variables, ...extractFunctions(ast, funcNames)]
       definition = { type: 'func', name, deps, args, ast: uniq.convert(ast) }

@@ -97,7 +97,7 @@ function parse(s: string): Block {
   function close(type: Group['type'], command: boolean) {
     const last = stack.pop()
     current = stack[stack.length - 1]
-    if (last == null || current == null || last.type !== type || last.command !== command) throw 'Paren mismatch'
+    if (last == null || current == null || last.type !== type || last.command !== command) throw 'Parentheses mismatch'
   }
   while (index < chars.length) {
     const c = chars[index++]
@@ -114,7 +114,7 @@ function parse(s: string): Block {
         } else if (k === '(') {
           open('paren', true)
         } else {
-          throw `Unsupported paren "${k}"`
+          throw `Unsupported bracket type "${k}"`
         }
       } else if (cmd === 'right' || cmd === 'mright') {
         const k = chars[index++]
@@ -123,7 +123,7 @@ function parse(s: string): Block {
         } else if (k === ')') {
           close('paren', true)
         } else {
-          throw `Unsupported paren "${k}"`
+          throw `Unsupported bracket type "${k}"`
         }
       } else {
         current.children.push(commandAlias[cmd] ?? '\\' + cmd)
@@ -145,7 +145,7 @@ function parse(s: string): Block {
       current.children.push(c)
     }
   }
-  if (stack.length !== 1) throw 'Too few paren'
+  if (stack.length !== 1) throw 'Too few parentheses'
   return stack[0].children
 }
 
