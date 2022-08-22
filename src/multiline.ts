@@ -77,9 +77,9 @@ export function parseMultiple(formulaTexts: string[], argNames: string[], preset
     let definition: FuncDef
     try {
       const [ast, mode] = parse(body, new Set([...varNames, ...args]), funcNames)
-      if (mode != null) throw `invalid compare operator`
+      if (mode != null) throw `Unexpected compare operator`
       const duplicateArgs = duplicates(args)
-      if (duplicateArgs.length !== 0) throw `duplicate argument name: ${JSON.stringify(duplicateArgs)}`
+      if (duplicateArgs.length !== 0) throw `Duplicated argument name: ${JSON.stringify(duplicateArgs)}`
       const variables = extractVariables(ast).filter(n => !args.includes(n))
       const deps = [...variables, ...extractFunctions(ast, funcNames)]
       definition = { type: 'func', name, deps, args, ast: uniq.convert(ast) }
@@ -349,6 +349,7 @@ export function astToRangeFunctionCode(uniqAST: UniqASTNode, args: string[], opt
 
 const defaultPresets: Presets = {
   pi: Math.PI,
+  'π': Math.PI,
   e: Math.E,
   mod: [['x', 'y'], 'x-floor(x/y)*y'],
   tan: [['x'], 'sin(x)/cos(x)'],
@@ -361,12 +362,17 @@ const defaultPresets: Presets = {
 
 export const presets2D: Presets = {
   r: 'hypot(x,y)',
-  theta: 'atan2(y,x)'
+  'θ': 'atan2(y,x)',
+  theta: 'θ',
+  th: 'θ',
 }
 export const presets3D: Presets = {
   r: 'hypot(x,y,z)',
-  theta: 'atan2(y,x)',
-  phi: 'atan2(hypot(x,y),z)',
+  'θ': 'atan2(y,x)',
+  theta: 'θ',
+  th: 'θ',
+  φ: 'atan2(hypot(x,y),z)',
+  phi: 'φ',
 }
 
 function duplicates<T>(elements: T[]): T[] {

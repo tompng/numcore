@@ -81,10 +81,10 @@ function parseMultiple(formulaTexts, argNames, presets) {
         try {
             const [ast, mode] = parser_1.parse(body, new Set([...varNames, ...args]), funcNames);
             if (mode != null)
-                throw `invalid compare operator`;
+                throw `Unexpected compare operator`;
             const duplicateArgs = duplicates(args);
             if (duplicateArgs.length !== 0)
-                throw `duplicate argument name: ${JSON.stringify(duplicateArgs)}`;
+                throw `Duplicated argument name: ${JSON.stringify(duplicateArgs)}`;
             const variables = ast_1.extractVariables(ast).filter(n => !args.includes(n));
             const deps = [...variables, ...ast_1.extractFunctions(ast, funcNames)];
             definition = { type: 'func', name, deps, args, ast: uniq.convert(ast) };
@@ -377,6 +377,7 @@ function astToRangeFunctionCode(uniqAST, args, option) {
 exports.astToRangeFunctionCode = astToRangeFunctionCode;
 const defaultPresets = {
     pi: Math.PI,
+    'π': Math.PI,
     e: Math.E,
     mod: [['x', 'y'], 'x-floor(x/y)*y'],
     tan: [['x'], 'sin(x)/cos(x)'],
@@ -388,12 +389,17 @@ const defaultPresets = {
 };
 exports.presets2D = {
     r: 'hypot(x,y)',
-    theta: 'atan2(y,x)'
+    'θ': 'atan2(y,x)',
+    theta: 'θ',
+    th: 'θ',
 };
 exports.presets3D = {
     r: 'hypot(x,y,z)',
-    theta: 'atan2(y,x)',
-    phi: 'atan2(hypot(x,y),z)',
+    'θ': 'atan2(y,x)',
+    theta: 'θ',
+    th: 'θ',
+    φ: 'atan2(hypot(x,y),z)',
+    phi: 'φ',
 };
 function duplicates(elements) {
     const dups = new Set();

@@ -12,7 +12,6 @@ const alias: Record<string, string | undefined> = {
   '・': '*', '×': '*', '÷': '/', '**': '^', '√': 'sqrt',
   'arcsin': 'asin', 'arccos': 'acos', 'arctan': 'atan',
   'arctanh': 'atanh', 'arccosh': 'acosh', 'arcsinh': 'asinh',
-  'π': 'pi', 'th': 'theta', 'θ': 'theta', 'φ': 'phi',
   'sgn': 'sign', 'signum': 'sign', 'factorial': 'fact',
 }
 const tokenSet = new Set([...predefinedFunctionNames, ...Object.keys(alias), ...operators, ...comparers, ',', ' '])
@@ -28,8 +27,8 @@ function parseParen(input: string): ParenGroup {
   }
   const pop = (abs: boolean) => {
     const last = stack.pop()!
-    if (last.abs !== abs) throw 'Absolute Paren Mismatch'
-    if (stack.length === 0) throw 'Paren Mismatch'
+    if (last.abs !== abs) throw 'Absolute value brackets mismatch'
+    if (stack.length === 0) throw 'Parentheses mismatch'
     current = stack[stack.length - 1]
   }
   for (const c of input) {
@@ -48,7 +47,7 @@ function parseParen(input: string): ParenGroup {
       current.group.push(c)
     }
   }
-  if (stack.length !== 1) throw 'Paren Mismatch'
+  if (stack.length !== 1) throw 'Parentheses mismatch'
   return current.group
 }
 
@@ -82,10 +81,17 @@ function tokenize(group: ParenGroup, tokens: Tokens): TokenParenGroup {
     const item = group[i]
     if (item === ' ') {
       if (out[out.length - 1] !== item) out.push(item)
-      i += 1
+      i ++
     } else if (typeof item === 'string') {
       const result = matchToken(pattern, i, tokens)
-      if (!result) throw `Unexpected Token "${pattern[i]}"`
+      if (!result) {
+        const s = pattern[i]
+        if (s.match(/[a-zA-Zα-ωΑ-Ω]+/)) {
+          throw `Undefined variable or function name "${s}"`
+        } else {
+          throw `Unexpected token "${s}"`
+        }
+      }
       const [v, len] = result
       out.push(v)
       i += len
@@ -177,8 +183,8 @@ type Node = string | number | Args | Paren
 type Consumer = { [key in keyof ParseStateData]: (node: Node | null, ...args: ParseStateData[key]) => ParseState }
 function assertIndependentNode<T>(node: T, functionNames?: Set<string>): T {
   if (typeof node === 'string') {
-    if (node === '!' || node === '^') throw 'Unexpected operator. Wrap with paren.'
-    if (functionNames && functionNames.has(node)) throw 'Unexpected function. Wrap with paren.'
+    if (node === '!' || node === '^') throw 'Unexpected operator. Wrap with parentheses.'
+    if (functionNames && functionNames.has(node)) throw 'Unexpected function. Wrap with parentheses.'
   }
   return node
 }
@@ -317,7 +323,7 @@ function buildFuncMultPowBang(group: TokenParenGroup, functionNames: Set<string>
     'func ^ ex'(node, func, decorators, ex) {
       if (node == null) throw 'Unexpected end of input after func^ex. expected arguments'
       if (node === ' ') return ['func ^ ex', func, decorators, ex]
-      if (typeof node !== 'object') throw 'Wrap function args with paren'
+      if (typeof node !== 'object') throw 'Wrap function arguments with parentheses'
       const funcCall = { op: func, args: node.type === 'args' ? [...decorators, ...node.value] : [...decorators, node.value] }
       multGroups.push({ op: '^', args: [funcCall, ex] })
       return ['default']
@@ -369,25 +375,25 @@ function splitByOp<T extends string>(items: TokenParenGroup, op: T[]) {
 
 function splitMultDiv(group: TokenParenGroup, functionNames: Set<string>): ASTNode {
   const result = splitByOp(group, ['*', '/']).reduce((ast, [op, group]) => {
-    if (group.length === 0) throw `No Right Hand Side: ${op}`
-    if (ast == null && op != null) throw `No Left Hand Side: ${op}`
+    if (group.length === 0) throw `No right hand side: ${op}`
+    if (ast == null && op != null) throw `No left hand side: ${op}`
     const nodes = buildFuncMultPowBang(group, functionNames)
     if (op === '/') ast = { op: '/', args: [ast!, nodes.shift()!] }
     const rhs = nodes.length ? nodes.reduce((a, b) => ({ op: '*', args: [a, b] })) : null
     if (ast != null && rhs != null) return { op: '*', args: [ast, rhs] }
     return ast ?? rhs
   }, null as null | ASTNode)
-  if (result == null) throw 'Unexpected Empty Group'
+  if (result == null) throw 'Unexpected empty group'
   return result
 }
 function splitPlusMinus(group: TokenParenGroup, functionNames: Set<string>): ASTNode {
   const result = splitByOp(group, ['+', '-']).reduce((ast, [op, group]) => {
-    if (group.length === 0) throw `No Right Hand Side: ${op}`
+    if (group.length === 0) throw `No right hand side: ${op}`
     const rhs = splitMultDiv(group, functionNames)
     if (ast === null) return op === '-' ? { op: '-@', args: [rhs] } : rhs
     return { op: op === '-' ? '-' : '+', args: [ast, rhs] }
   }, null as null | ASTNode)
-  if (result == null) throw 'Unexpected Empty Group'
+  if (result == null) throw 'Unexpected empty group'
   return result
 }
 

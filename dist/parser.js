@@ -13,7 +13,6 @@ const alias = {
     '・': '*', '×': '*', '÷': '/', '**': '^', '√': 'sqrt',
     'arcsin': 'asin', 'arccos': 'acos', 'arctan': 'atan',
     'arctanh': 'atanh', 'arccosh': 'acosh', 'arcsinh': 'asinh',
-    'π': 'pi', 'th': 'theta', 'θ': 'theta', 'φ': 'phi',
     'sgn': 'sign', 'signum': 'sign', 'factorial': 'fact',
 };
 const tokenSet = new Set([...exports.predefinedFunctionNames, ...Object.keys(alias), ...operators, ...comparers, ',', ' ']);
@@ -28,9 +27,9 @@ function parseParen(input) {
     const pop = (abs) => {
         const last = stack.pop();
         if (last.abs !== abs)
-            throw 'Absolute Paren Mismatch';
+            throw 'Absolute value brackets mismatch';
         if (stack.length === 0)
-            throw 'Paren Mismatch';
+            throw 'Parentheses mismatch';
         current = stack[stack.length - 1];
     };
     for (const c of input) {
@@ -54,7 +53,7 @@ function parseParen(input) {
         }
     }
     if (stack.length !== 1)
-        throw 'Paren Mismatch';
+        throw 'Parentheses mismatch';
     return current.group;
 }
 function convertAlias(s) {
@@ -85,12 +84,19 @@ function tokenize(group, tokens) {
         if (item === ' ') {
             if (out[out.length - 1] !== item)
                 out.push(item);
-            i += 1;
+            i++;
         }
         else if (typeof item === 'string') {
             const result = matchToken(pattern, i, tokens);
-            if (!result)
-                throw `Unexpected Token "${pattern[i]}"`;
+            if (!result) {
+                const s = pattern[i];
+                if (s.match(/[a-zA-Zα-ωΑ-Ω]+/)) {
+                    throw `Undefined variable or function name "${s}"`;
+                }
+                else {
+                    throw `Unexpected token "${s}"`;
+                }
+            }
             const [v, len] = result;
             out.push(v);
             i += len;
@@ -159,9 +165,9 @@ const oplist = [new Set(['+', '-']), new Set(['*', '/'])];
 function assertIndependentNode(node, functionNames) {
     if (typeof node === 'string') {
         if (node === '!' || node === '^')
-            throw 'Unexpected operator. Wrap with paren.';
+            throw 'Unexpected operator. Wrap with parentheses.';
         if (functionNames && functionNames.has(node))
-            throw 'Unexpected function. Wrap with paren.';
+            throw 'Unexpected function. Wrap with parentheses.';
     }
     return node;
 }
@@ -327,7 +333,7 @@ function buildFuncMultPowBang(group, functionNames) {
             if (node === ' ')
                 return ['func ^ ex', func, decorators, ex];
             if (typeof node !== 'object')
-                throw 'Wrap function args with paren';
+                throw 'Wrap function arguments with parentheses';
             const funcCall = { op: func, args: node.type === 'args' ? [...decorators, ...node.value] : [...decorators, node.value] };
             multGroups.push({ op: '^', args: [funcCall, ex] });
             return ['default'];
@@ -385,9 +391,9 @@ function splitByOp(items, op) {
 function splitMultDiv(group, functionNames) {
     const result = splitByOp(group, ['*', '/']).reduce((ast, [op, group]) => {
         if (group.length === 0)
-            throw `No Right Hand Side: ${op}`;
+            throw `No right hand side: ${op}`;
         if (ast == null && op != null)
-            throw `No Left Hand Side: ${op}`;
+            throw `No left hand side: ${op}`;
         const nodes = buildFuncMultPowBang(group, functionNames);
         if (op === '/')
             ast = { op: '/', args: [ast, nodes.shift()] };
@@ -397,20 +403,20 @@ function splitMultDiv(group, functionNames) {
         return ast !== null && ast !== void 0 ? ast : rhs;
     }, null);
     if (result == null)
-        throw 'Unexpected Empty Group';
+        throw 'Unexpected empty group';
     return result;
 }
 function splitPlusMinus(group, functionNames) {
     const result = splitByOp(group, ['+', '-']).reduce((ast, [op, group]) => {
         if (group.length === 0)
-            throw `No Right Hand Side: ${op}`;
+            throw `No right hand side: ${op}`;
         const rhs = splitMultDiv(group, functionNames);
         if (ast === null)
             return op === '-' ? { op: '-@', args: [rhs] } : rhs;
         return { op: op === '-' ? '-' : '+', args: [ast, rhs] };
     }, null);
     if (result == null)
-        throw 'Unexpected Empty Group';
+        throw 'Unexpected empty group';
     return result;
 }
 function buildAST(group, functionNames) {

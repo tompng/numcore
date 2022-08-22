@@ -20,21 +20,54 @@ type BlockGroup = {
 }
 type Group = ParenGroup | AbsGroup | BlockGroup 
 const commandAlias: Record<string, string> = {
-  'gt': '>',
-  'ge': '≥',
-  'geq': '≥',
-  'geqq': '≥',
-  'le': '≤',
-  'leq': '≤',
-  'leqq': '≤',
-  'lt': '<',
-  'pi': 'π',
-  'theta': 'θ',
-  'phi': 'φ',
-  'cdot': '・',
-  'times': '×',
-  'div': '÷',
+  gt: '>',
+  ge: '≥',
+  geq: '≥',
+  geqq: '≥',
+  le: '≤',
+  leq: '≤',
+  leqq: '≤',
+  lt: '<',
+  cdot: '・',
+  times: '×',
+  div: '÷',
 }
+
+const greekLetters = [
+  'alpha',
+  'beta',
+  'gamma',
+  'delta',
+  'epsilon',
+  'zeta',
+  'eta',
+  'theta',
+  'iota',
+  'kappa',
+  'lambda',
+  'mu',
+  'nu',
+  'xi',
+  'omicron',
+  'pi',
+  'rho',
+  'sigma',
+  'tau',
+  'upsilon',
+  'phi',
+  'chi',
+  'psi',
+  'omega',
+]
+greekLetters.forEach((name, i) => {
+  const code = 913 + (i < 17 ? i : i + 1)
+  const aw = String.fromCharCode(code + 32)
+  const AW = String.fromCharCode(code)
+  const Name = name[0].toUpperCase() + name.substring(1)
+  commandAlias[name] = aw
+  commandAlias[Name] = AW
+})
+
 const functionCommands = new Set([
   'sqrt', 'log', 'exp',
   'sin', 'cos', 'tan',
@@ -64,7 +97,7 @@ function parse(s: string): Block {
   function close(type: Group['type'], command: boolean) {
     const last = stack.pop()
     current = stack[stack.length - 1]
-    if (last == null || current == null || last.type !== type || last.command !== command) throw 'Paren mismatch'
+    if (last == null || current == null || last.type !== type || last.command !== command) throw 'Parentheses mismatch'
   }
   while (index < chars.length) {
     const c = chars[index++]
@@ -81,7 +114,7 @@ function parse(s: string): Block {
         } else if (k === '(') {
           open('paren', true)
         } else {
-          throw `Unsupported paren "${k}"`
+          throw `Unsupported bracket type "${k}"`
         }
       } else if (cmd === 'right' || cmd === 'mright') {
         const k = chars[index++]
@@ -90,7 +123,7 @@ function parse(s: string): Block {
         } else if (k === ')') {
           close('paren', true)
         } else {
-          throw `Unsupported paren "${k}"`
+          throw `Unsupported bracket type "${k}"`
         }
       } else {
         current.children.push(commandAlias[cmd] ?? '\\' + cmd)
@@ -112,7 +145,7 @@ function parse(s: string): Block {
       current.children.push(c)
     }
   }
-  if (stack.length !== 1) throw 'Too few paren'
+  if (stack.length !== 1) throw 'Too few parentheses'
   return stack[0].children
 }
 

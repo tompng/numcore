@@ -6,21 +6,52 @@ function texToPlain(s) {
 }
 exports.texToPlain = texToPlain;
 const commandAlias = {
-    'gt': '>',
-    'ge': '≥',
-    'geq': '≥',
-    'geqq': '≥',
-    'le': '≤',
-    'leq': '≤',
-    'leqq': '≤',
-    'lt': '<',
-    'pi': 'π',
-    'theta': 'θ',
-    'phi': 'φ',
-    'cdot': '・',
-    'times': '×',
-    'div': '÷',
+    gt: '>',
+    ge: '≥',
+    geq: '≥',
+    geqq: '≥',
+    le: '≤',
+    leq: '≤',
+    leqq: '≤',
+    lt: '<',
+    cdot: '・',
+    times: '×',
+    div: '÷',
 };
+const greekLetters = [
+    'alpha',
+    'beta',
+    'gamma',
+    'delta',
+    'epsilon',
+    'zeta',
+    'eta',
+    'theta',
+    'iota',
+    'kappa',
+    'lambda',
+    'mu',
+    'nu',
+    'xi',
+    'omicron',
+    'pi',
+    'rho',
+    'sigma',
+    'tau',
+    'upsilon',
+    'phi',
+    'chi',
+    'psi',
+    'omega',
+];
+greekLetters.forEach((name, i) => {
+    const code = 913 + (i < 17 ? i : i + 1);
+    const aw = String.fromCharCode(code + 32);
+    const AW = String.fromCharCode(code);
+    const Name = name[0].toUpperCase() + name.substring(1);
+    commandAlias[name] = aw;
+    commandAlias[Name] = AW;
+});
 const functionCommands = new Set([
     'sqrt', 'log', 'exp',
     'sin', 'cos', 'tan',
@@ -52,7 +83,7 @@ function parse(s) {
         const last = stack.pop();
         current = stack[stack.length - 1];
         if (last == null || current == null || last.type !== type || last.command !== command)
-            throw 'Paren mismatch';
+            throw 'Parentheses mismatch';
     }
     while (index < chars.length) {
         const c = chars[index++];
@@ -73,7 +104,7 @@ function parse(s) {
                     open('paren', true);
                 }
                 else {
-                    throw `Unsupported paren "${k}"`;
+                    throw `Unsupported bracket type "${k}"`;
                 }
             }
             else if (cmd === 'right' || cmd === 'mright') {
@@ -85,7 +116,7 @@ function parse(s) {
                     close('paren', true);
                 }
                 else {
-                    throw `Unsupported paren "${k}"`;
+                    throw `Unsupported bracket type "${k}"`;
                 }
             }
             else {
@@ -114,7 +145,7 @@ function parse(s) {
         }
     }
     if (stack.length !== 1)
-        throw 'Too few paren';
+        throw 'Too few parentheses';
     return stack[0].children;
 }
 function convert(block) {
