@@ -20,21 +20,54 @@ type BlockGroup = {
 }
 type Group = ParenGroup | AbsGroup | BlockGroup 
 const commandAlias: Record<string, string> = {
-  'gt': '>',
-  'ge': '≥',
-  'geq': '≥',
-  'geqq': '≥',
-  'le': '≤',
-  'leq': '≤',
-  'leqq': '≤',
-  'lt': '<',
-  'pi': 'π',
-  'theta': 'θ',
-  'phi': 'φ',
-  'cdot': '・',
-  'times': '×',
-  'div': '÷',
+  gt: '>',
+  ge: '≥',
+  geq: '≥',
+  geqq: '≥',
+  le: '≤',
+  leq: '≤',
+  leqq: '≤',
+  lt: '<',
+  cdot: '・',
+  times: '×',
+  div: '÷',
 }
+
+const greekLetters = [
+  'alpha',
+  'beta',
+  'gamma',
+  'delta',
+  'epsilon',
+  'zeta',
+  'eta',
+  'theta',
+  'iota',
+  'kappa',
+  'lambda',
+  'mu',
+  'nu',
+  'xi',
+  'omicron',
+  'pi',
+  'rho',
+  'sigma',
+  'tau',
+  'upsilon',
+  'phi',
+  'chi',
+  'psi',
+  'omega',
+]
+greekLetters.forEach((name, i) => {
+  const code = 913 + (i < 17 ? i : i + 1)
+  const aw = String.fromCharCode(code + 32)
+  const AW = String.fromCharCode(code)
+  const Name = name[0].toUpperCase() + name.substring(1)
+  commandAlias[name] = aw
+  commandAlias[Name] = AW
+})
+
 const functionCommands = new Set([
   'sqrt', 'log', 'exp',
   'sin', 'cos', 'tan',
