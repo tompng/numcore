@@ -83,7 +83,7 @@ function parse(s: string): Block {
   const stack: Group[] = [current]
   function takeCommand() {
     let cmd = ''
-    while (index < chars.length && 'a' <= chars[index] && chars[index] <= 'z') {
+    while (index < chars.length && chars[index].match(/[a-zA-Z]/)) {
       cmd += chars[index]
       index++
     }
