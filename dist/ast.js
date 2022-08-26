@@ -93,6 +93,8 @@ function preEvaluateAST(ast, uniq, astResult = new Map()) {
         if (result != null)
             return result;
         const args = ast.args.map(traverse);
+        if (args.some(arg => typeof arg === 'number' && isNaN(arg)))
+            return NaN;
         if (isNumberArray(args)) {
             const v = evalOperatorArgs(ast.op, args);
             if (v != null)

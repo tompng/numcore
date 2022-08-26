@@ -89,6 +89,7 @@ export function preEvaluateAST(ast: UniqASTNode, uniq: UniqASTGenerator, astResu
     let result = astResult.get(ast)
     if (result != null) return result
     const args = ast.args.map(traverse)
+    if (args.some(arg => typeof arg === 'number' && isNaN(arg))) return NaN
     if (isNumberArray(args)) {
       const v = evalOperatorArgs(ast.op, args)
       if (v != null) result = v
