@@ -51,6 +51,8 @@ function parseMultiple(formulaTexts, argNames, presets) {
         const [_, name, args] = match;
         if (!keywordsSet.has(name))
             continue;
+        if (funcNames.has(name) || varNames.has(name))
+            continue;
         if (args)
             funcNames.add(name);
         else

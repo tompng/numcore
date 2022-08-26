@@ -52,6 +52,7 @@ export function parseMultiple(formulaTexts: string[], argNames: string[], preset
     if (!match) continue
     const [_, name, args] = match
     if (!keywordsSet.has(name)) continue
+    if (funcNames.has(name) || varNames.has(name)) continue
     if (args) funcNames.add(name)
     else varNames.add(name)
   }
