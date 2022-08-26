@@ -125,7 +125,7 @@ export function astToCode(ast: ASTNode, argNames: Set<string>): string {
         return `(${a}${ast.op}${b})`
     }
     const alias = funcAlias2[ast.op]
-    if (alias) `${alias}(${a},${b})`
+    if (alias) return `${alias}(${a},${b})`
     return `Math.${ast.op}(${a},${b})`
   } else if (args.length === 1) {
     const [a] = args

@@ -133,7 +133,7 @@ function astToCode(ast, argNames) {
         }
         const alias = funcAlias2[ast.op];
         if (alias)
-            `${alias}(${a},${b})`;
+            return `${alias}(${a},${b})`;
         return `Math.${ast.op}(${a},${b})`;
     }
     else if (args.length === 1) {
