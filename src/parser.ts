@@ -129,9 +129,13 @@ function flipComparator(cmp: CompareMode): CompareMode {
   }
 }
 
-function buildRootAST(group: TokenParenGroup, functionNames: Set<string>): [ASTNode, CompareMode] {
+function buildRootAST(group: TokenParenGroup, functionNames: Set<string>): [ASTNode, CompareMode] | [ASTNode[], null] {
   const idx = group.findIndex(item => typeof item === 'string' && comparers.has(item))
   if (idx === -1) {
+    if (group.length === 1 && Array.isArray(group[0]) && group[0].length >= 2) {
+      const axis = buildAST(group[0], functionNames)
+      if (Array.isArray(axis)) return [axis, null] // Point
+    }
     const ast = buildAST(group, functionNames)
     if (Array.isArray(ast)) throw 'Unexpected comma'
     return [ast, null]
