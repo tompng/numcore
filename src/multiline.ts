@@ -28,10 +28,10 @@ function embedRequiredPartials(code: string) {
   return [...requiredCodes, trimmed].join(';')
 }
 
-export function parseMultiple(formulaTexts: string[], argNames: string[], presets?: Presets) {
+export function parseMultiple(formulaTexts: string[], argNames: string[], overridableArgNames: string[], presets: Presets) {
   const uniq = new UniqASTGenerator()
   const predefinedVars = new Set(argNames)
-  const varNames = new Set(predefinedVars)
+  const varNames = new Set([...predefinedVars, ...overridableArgNames])
   const varDefRegexp = /^ *([a-zA-Zα-ωΑ-Ω]+) *(\( *[a-zA-Zα-ωΑ-Ω]+(?: *, *[a-zA-Zα-ωΑ-Ω]+)* *\))? *=(.*)/
   const funcNames = new Set(predefinedFunctionNames)
   presets = { ...defaultPresets, ...presets }

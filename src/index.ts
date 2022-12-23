@@ -22,12 +22,12 @@ export {
   astToValueFunctionCode,
 } from "./multiline"
 
-export function parse(expression: string, argNames: string[], presets: Presets): Formula
-export function parse(expressions: string[], argNames: string[], presets: Presets): Formula[]
-export function parse(expressionOrExpressions: string | string[], argNames: string[], presets: Presets): Formula | Formula[] {
+export function parse(expression: string, argNames: string[], overridableArgNames: string[], presets: Presets): Formula
+export function parse(expressions: string[], argNames: string[], overridableArgNames: string[], presets: Presets): Formula[]
+export function parse(expressionOrExpressions: string | string[], argNames: string[], overridableArgNames: string[], presets: Presets): Formula | Formula[] {
   if (Array.isArray(expressionOrExpressions)) {
-    return parseMultiple(expressionOrExpressions, argNames, presets)
+    return parseMultiple(expressionOrExpressions, argNames, overridableArgNames, presets)
   } else {
-    return parseMultiple([expressionOrExpressions], argNames, presets)[0]
+    return parseMultiple([expressionOrExpressions], argNames, overridableArgNames, presets)[0]
   }
 }
