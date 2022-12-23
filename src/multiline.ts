@@ -9,8 +9,9 @@ export type Presets = Record<string, string | number | PresetFunc>
 type VarDef = { type: 'var'; name: string; deps: string[]; ast: UniqASTNode | null; error?: string }
 type FuncDef = { type: 'func'; name: string; deps: string[]; args: string[]; ast: UniqASTNode | null; error?: string }
 type Equation = { type: 'eq'; mode: CompareMode; deps: string[]; ast: UniqASTNode | null; error?: string }
+type Point = { type: 'point'; deps: string[]; axis: UniqASTNode[] | null; error?: string }
 type Definition = VarDef | FuncDef
-export type Formula = Definition | Equation
+export type Formula = Definition | Equation | Point
 export const epsilon = 1e-15
 
 const partials: Record<string, string> = { ...factorialPartials }
@@ -27,10 +28,10 @@ function embedRequiredPartials(code: string) {
   return [...requiredCodes, trimmed].join(';')
 }
 
-export function parseMultiple(formulaTexts: string[], argNames: string[], presets?: Presets) {
+export function parseMultiple(formulaTexts: string[], argNames: string[], overridableArgNames: string[], presets: Presets) {
   const uniq = new UniqASTGenerator()
   const predefinedVars = new Set(argNames)
-  const varNames = new Set(predefinedVars)
+  const varNames = new Set([...predefinedVars, ...overridableArgNames])
   const varDefRegexp = /^ *([a-zA-Zα-ωΑ-Ω]+) *(\( *[a-zA-Zα-ωΑ-Ω]+(?: *, *[a-zA-Zα-ωΑ-Ω]+)* *\))? *=(.*)/
   const funcNames = new Set(predefinedFunctionNames)
   presets = { ...defaultPresets, ...presets }
@@ -65,6 +66,8 @@ export function parseMultiple(formulaTexts: string[], argNames: string[], preset
     } else {
       try {
         const [ast, mode] = parse(body, varNames, funcNames)
+        if (mode != null) throw 'Unexpected compare operator'
+        if (Array.isArray(ast)) throw 'Unexpected point'
         const deps = extractVariables(ast)
         definition = { type: 'var', name, deps, ast: uniq.convert(ast) }
       } catch(e) {
@@ -78,7 +81,8 @@ export function parseMultiple(formulaTexts: string[], argNames: string[], preset
     let definition: FuncDef
     try {
       const [ast, mode] = parse(body, new Set([...varNames, ...args]), funcNames)
-      if (mode != null) throw `Unexpected compare operator`
+      if (mode != null) throw 'Unexpected compare operator'
+      if (Array.isArray(ast)) throw 'Unexpected point'
       const duplicateArgs = duplicates(args)
       if (duplicateArgs.length !== 0) throw `Duplicated argument name: ${JSON.stringify(duplicateArgs)}`
       const variables = extractVariables(ast).filter(n => !args.includes(n))
@@ -108,8 +112,13 @@ export function parseMultiple(formulaTexts: string[], argNames: string[], preset
     if (!match || !name || !keywordsSet.has(name) || vars.has(name) || funcs.has(name) || predefinedVars.has(name) || predefinedFunctionNames.has(name)) {
       try {
         const [ast, mode] = parse(f, varNames, funcNames)
-        const deps = extractVariables(ast)
-        return { type: 'eq', mode, deps, ast: uniq.convert(ast) }
+        if (Array.isArray(ast)) {
+          const deps = [...new Set(...ast.flatMap(axis => extractVariables(axis)))]
+          return { type: 'point', deps, axis: ast.map(axis => uniq.convert(axis)) }
+        } else {
+          const deps = extractVariables(ast)
+          return { type: 'eq', mode, deps, ast: uniq.convert(ast) }
+        }
       } catch (e) {
         return { type: 'eq', mode: null, deps: [], ast: null, error: String(e) }
       }
@@ -127,6 +136,15 @@ export function parseMultiple(formulaTexts: string[], argNames: string[], preset
   recursiveCheck(formulas, defs)
   const preEvaluateResults = new Map<UniqASTNode, UniqASTNode>()
   return formulas.map(f => {
+    if (f.type === 'point') {
+      if (!f.axis || f.error) return f
+      try {
+        const expandedAxis = f.axis.map(axis => preEvaluateAST(expandAST(axis, vars, funcs, uniq), uniq, preEvaluateResults))
+        return { ...f, axis: expandedAxis }
+      } catch(e) {
+        return { ...f, axis: null, error: String(e) }
+      }
+    }
     if (!f.ast || f.error) return f
     if (f.type === 'func') return f
     try {
@@ -179,7 +197,7 @@ function recursiveCheck(formulas: Formula[], defs: Map<string, Definition>) {
   const rec = new Set<string>()
   function check(formula: Formula) {
     if (formula.error) return
-    if (formula.type !== 'eq') {
+    if (formula.type === 'var' || formula.type === 'func') {
       if (rec.has(formula.name)) {
         formula.error = `cannot define recursively: ${formula.name}`
         formula.ast = null
@@ -194,9 +212,13 @@ function recursiveCheck(formulas: Formula[], defs: Map<string, Definition>) {
     const errorDep = formula.deps.find(n => defs.get(n)?.error)
     if (errorDep) {
       formula.error = formula.error || `${errorDep} is not defined`
-      formula.ast = null
+      if (formula.type === 'point') {
+        formula.axis = null
+      } else {
+        formula.ast = null
+      }
     }
-    if (formula.type !== 'eq') rec.delete(formula.name)
+    if (formula.type === 'var' || formula.type === 'func') rec.delete(formula.name)
   }
   for (const f of formulas) check(f)
 }
@@ -295,7 +317,7 @@ export function astToValueFunctionCode(uniqAST: UniqASTNode, args: string[]) {
   return embedRequiredPartials(`(${args.join(',')})=>{${codes.join('\n')}\nreturn ${rcode}}`)
 }
 
-export function astToRangeFunctionCode(uniqAST: UniqASTNode, args: string[], option: { pos?: boolean; neg?: boolean; zero?: boolean; eq?: boolean }) {
+export function astToRangeFunctionCode(uniqAST: UniqASTNode, args: string[], option: { pos?: boolean; neg?: boolean; zero?: boolean; eq?: boolean; range?: false } | { pos?: false; neg?: false; zero?: false; eq?: false; range: true }) {
   const [tempVars, returnAST] = toProcedure(uniqAST)
   const namer = createNameGenerator()
   const vars: Record<string, MinMaxVarName> = {}
@@ -320,6 +342,7 @@ export function astToRangeFunctionCode(uniqAST: UniqASTNode, args: string[], opt
   const argsPart = `(${args.map(a => `${a}min,${a}max`).join(',')})`
   if (typeof result === 'number') {
     const val = isNaN(result) ? RangeResults.EQNAN : result < -epsilon ? RangeResults.NEGATIVE : result > epsilon ? RangeResults.POSITIVE : RangeResults.EQZERO
+    if (option.range) return `${argsPart}=>[${val},${result},${result}]`
     return `${argsPart}=>${val}`
   }
   const fullCode = [...codes, rcode].join('\n')
@@ -336,7 +359,9 @@ export function astToRangeFunctionCode(uniqAST: UniqASTNode, args: string[], opt
   const zeroRetPartWithNaN = option.zero ? `${minvar}>-${epsilon}&&${maxvar}<${epsilon}?${nanRetPart}${RangeResults.EQZERO}:` : ''
   const cmpEpsilon = option.eq ? -epsilon : epsilon
   let returnPart: string
-  if (option.pos && option.neg) {
+  if (option.range) {
+    returnPart = `return [${nanRetPart}${gapRetPart}${RangeResults.OTHER},${minvar},${maxvar}]`
+  } else if (option.pos && option.neg) {
     returnPart = `return ${nanRetPart}${minvar}>${epsilon}?${RangeResults.POSITIVE}:${maxvar}<${-epsilon}?${RangeResults.NEGATIVE}:${zeroRetPart}${gapRetPart}${RangeResults.BOTH}`
   } else if (option.pos) {
     returnPart = `return ${minvar}>${cmpEpsilon}?${nanRetPart}${RangeResults.POSITIVE}:${maxvar}<${cmpEpsilon}?${RangeResults.OTHER}:${gapRetPart}${RangeResults.BOTH}`
