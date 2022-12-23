@@ -317,7 +317,7 @@ export function astToValueFunctionCode(uniqAST: UniqASTNode, args: string[]) {
   return embedRequiredPartials(`(${args.join(',')})=>{${codes.join('\n')}\nreturn ${rcode}}`)
 }
 
-export function astToRangeFunctionCode(uniqAST: UniqASTNode, args: string[], option: { pos?: boolean; neg?: boolean; zero?: boolean; eq?: boolean }) {
+export function astToRangeFunctionCode(uniqAST: UniqASTNode, args: string[], option: { pos?: boolean; neg?: boolean; zero?: boolean; eq?: boolean; range?: false } | { pos?: false; neg?: false; zero?: false; eq?: false; range: true }) {
   const [tempVars, returnAST] = toProcedure(uniqAST)
   const namer = createNameGenerator()
   const vars: Record<string, MinMaxVarName> = {}
@@ -342,6 +342,7 @@ export function astToRangeFunctionCode(uniqAST: UniqASTNode, args: string[], opt
   const argsPart = `(${args.map(a => `${a}min,${a}max`).join(',')})`
   if (typeof result === 'number') {
     const val = isNaN(result) ? RangeResults.EQNAN : result < -epsilon ? RangeResults.NEGATIVE : result > epsilon ? RangeResults.POSITIVE : RangeResults.EQZERO
+    if (option.range) return `${argsPart}=>[${val},${result},${result}]`
     return `${argsPart}=>${val}`
   }
   const fullCode = [...codes, rcode].join('\n')
@@ -358,7 +359,9 @@ export function astToRangeFunctionCode(uniqAST: UniqASTNode, args: string[], opt
   const zeroRetPartWithNaN = option.zero ? `${minvar}>-${epsilon}&&${maxvar}<${epsilon}?${nanRetPart}${RangeResults.EQZERO}:` : ''
   const cmpEpsilon = option.eq ? -epsilon : epsilon
   let returnPart: string
-  if (option.pos && option.neg) {
+  if (option.range) {
+    returnPart = `return [${nanRetPart}${gapRetPart}${RangeResults.OTHER},${minvar},${maxvar}]`
+  } else if (option.pos && option.neg) {
     returnPart = `return ${nanRetPart}${minvar}>${epsilon}?${RangeResults.POSITIVE}:${maxvar}<${-epsilon}?${RangeResults.NEGATIVE}:${zeroRetPart}${gapRetPart}${RangeResults.BOTH}`
   } else if (option.pos) {
     returnPart = `return ${minvar}>${cmpEpsilon}?${nanRetPart}${RangeResults.POSITIVE}:${maxvar}<${cmpEpsilon}?${RangeResults.OTHER}:${gapRetPart}${RangeResults.BOTH}`

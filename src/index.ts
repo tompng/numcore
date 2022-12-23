@@ -2,13 +2,14 @@ import { parseMultiple, Formula, Presets } from "./multiline"
 export { UniqASTNode, extractVariables } from './ast'
 export { epsilon } from './multiline'
 export { texToPlain } from './tex'
-import type { RangeResultType } from './util'
+import { RangeResults, RangeResultType } from './util'
 export {
   RangeResults,
   CompareMode,
   RangeResultType,
 } from './util'
 
+export type RangeMinMaxResult = [status: RangeResultType, min: number, max: number] | typeof RangeResults.EQNAN
 export type RangeFunction2D = (xmin: number, xmax: number, ymin: number, ymax: number) => RangeResultType
 export type RangeFunction3D = (xmin: number, xmax: number, ymin: number, ymax: number, zmin: number, zmax: number) => RangeResultType
 export type ValueFunction2D = (x: number, y: number) => number
